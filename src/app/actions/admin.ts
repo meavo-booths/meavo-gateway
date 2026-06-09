@@ -3,17 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { SystemRole, TeamRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import {
-  revokeUserFromHols,
-  syncTeamToHols,
-  syncUserToHolsIfHasAccess,
-  syncVacationAccessChanges,
-} from "@/lib/hols-sync";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
-import { VACATION_TRACKER_CARD_ID } from "@/lib/vacation-tracker";
 
 async function requireAdmin() {
   const session = await auth();
@@ -40,8 +33,8 @@ export async function createUser(formData: FormData): Promise<void> {
 
   const passwordHash = await hashPassword(password);
 
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
       data: {
         email,
         name,
@@ -51,13 +44,10 @@ export async function createUser(formData: FormData): Promise<void> {
     });
 
     await tx.teamMember.create({
-      data: { userId: created.id, teamId, role },
+      data: { userId: user.id, teamId, role },
     });
-
-    return created;
   });
 
-  await syncUserToHolsIfHasAccess(user.id);
   revalidatePath("/admin");
 }
 
@@ -78,7 +68,6 @@ export async function deleteUser(userId: string): Promise<void> {
     if (adminCount <= 1) return;
   }
 
-  await revokeUserFromHols(userId);
   await prisma.user.delete({ where: { id: userId } });
   revalidatePath("/admin");
 }
@@ -96,7 +85,6 @@ export async function resetUserPassword(formData: FormData): Promise<void> {
     data: { passwordHash: await hashPassword(password) },
   });
 
-  await syncUserToHolsIfHasAccess(userId);
   revalidatePath("/admin");
 }
 
@@ -114,7 +102,6 @@ export async function changeUserTeam(formData: FormData): Promise<void> {
     await tx.teamMember.create({ data: { userId, teamId, role } });
   });
 
-  await syncUserToHolsIfHasAccess(userId);
   revalidatePath("/admin");
 }
 
@@ -128,14 +115,12 @@ export async function createTeam(formData: FormData): Promise<void> {
   if (!name) return;
   if (!Number.isFinite(yearlyAllowance) || yearlyAllowance < 0) return;
 
-  let team;
   try {
-    team = await prisma.team.create({ data: { name, yearlyAllowance, color } });
+    await prisma.team.create({ data: { name, yearlyAllowance, color } });
   } catch {
     return;
   }
 
-  await syncTeamToHols(team.id);
   revalidatePath("/admin");
 }
 
@@ -157,7 +142,6 @@ export async function updateTeam(formData: FormData): Promise<void> {
     return;
   }
 
-  await syncTeamToHols(teamId);
   revalidatePath("/admin");
 }
 
@@ -173,7 +157,6 @@ export async function updateTeamAllowance(
     data: { yearlyAllowance },
   });
 
-  await syncTeamToHols(teamId);
   revalidatePath("/admin");
 }
 
@@ -226,13 +209,6 @@ export async function setCardAccess(formData: FormData): Promise<void> {
   if (!cardId) return;
 
   const userIds = formData.getAll("userId").map((id) => String(id));
-  const previousAccess =
-    cardId === VACATION_TRACKER_CARD_ID
-      ? await prisma.toolCardAccess.findMany({
-          where: { cardId },
-          select: { userId: true },
-        })
-      : [];
 
   await prisma.$transaction(async (tx) => {
     await tx.toolCardAccess.deleteMany({ where: { cardId } });
@@ -242,13 +218,6 @@ export async function setCardAccess(formData: FormData): Promise<void> {
       });
     }
   });
-
-  if (cardId === VACATION_TRACKER_CARD_ID) {
-    await syncVacationAccessChanges(
-      previousAccess.map((row) => row.userId),
-      userIds
-    );
-  }
 
   revalidatePath("/admin");
   revalidatePath("/");
@@ -260,11 +229,6 @@ export async function setUserAccess(formData: FormData): Promise<void> {
   if (!userId) return;
 
   const cardIds = formData.getAll("cardId").map((id) => String(id));
-  const hadVacationAccess = await prisma.toolCardAccess.findUnique({
-    where: {
-      userId_cardId: { userId, cardId: VACATION_TRACKER_CARD_ID },
-    },
-  });
 
   await prisma.$transaction(async (tx) => {
     await tx.toolCardAccess.deleteMany({ where: { userId } });
@@ -274,13 +238,6 @@ export async function setUserAccess(formData: FormData): Promise<void> {
       });
     }
   });
-
-  const hasVacationAccess = cardIds.includes(VACATION_TRACKER_CARD_ID);
-  if (hasVacationAccess) {
-    await syncUserToHolsIfHasAccess(userId);
-  } else if (hadVacationAccess) {
-    await revokeUserFromHols(userId);
-  }
 
   revalidatePath("/admin");
   revalidatePath("/");

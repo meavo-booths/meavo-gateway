@@ -2,22 +2,26 @@
 
 Company tools dashboard for [meavo.app](https://meavo.app). Users sign in and open the apps they have access to (e.g. Vacation Tracker at hols.meavo.app).
 
-Separate from the [Vacation Tracker](https://github.com/meavo-stack/hols) repo — own database, but users with Vacation Tracker access are provisioned on hols automatically.
+Gateway is the **source of truth** for users, teams, and tool access. [Vacation Tracker](https://github.com/meavo-stack/hols) connects to the **same Neon database** for shared users and teams.
 
-## Vacation Tracker sync
+## Shared database
 
-Gateway is the source of truth for **users** and **teams**. When a user is granted the Vacation Tracker card, gateway provisions their hols account (same email/password, team, and role).
+Both apps use one Postgres database (gateway's Neon):
 
-Set on **both** Vercel projects (same secret value):
+| App | Manages in DB |
+|-----|----------------|
+| **meavo-gateway** | Users, teams, tool cards, access |
+| **hols** | Vacation requests, allowance overrides (reads users/teams) |
 
-| Variable | Gateway | Hols |
-|----------|---------|------|
-| `HOLS_SYNC_URL` | `https://hols.meavo.app` | — |
-| `GATEWAY_SYNC_SECRET` | shared secret | same shared secret |
+On Vercel, set **hols** `DATABASE_URL` to the **same value** as gateway.
 
-Generate: `openssl rand -base64 32`
+After pointing hols at the gateway database, run once from the hols repo:
 
-After deploy, run `npm run db:push` on **both** repos if the schema changed.
+```bash
+npm run db:push
+```
+
+That adds vacation-specific tables (`VacationRequest`, `UserAllowance`, etc.) to the shared database.
 
 ## Local setup
 
@@ -33,28 +37,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db:push` in hols.
+
 ## Deploy to Vercel
 
-1. Create a new GitHub repo `meavo-stack/meavo-gateway` and push this project.
-2. Import the repo in Vercel → new project.
-3. Add a **Neon Postgres** database (separate from hols).
-4. Set environment variables:
+1. Import the repo in Vercel → new project.
+2. Add **Neon Postgres** (this database is shared with hols).
+3. Set environment variables:
    - `DATABASE_URL`
    - `AUTH_SECRET` — `openssl rand -base64 32`
    - `AUTH_URL` — `https://meavo.app`
    - `ADMIN_EMAILS`
    - `ADMIN_PASSWORD` (for initial seed only)
-   - `HOLS_SYNC_URL` — `https://hols.meavo.app`
-   - `GATEWAY_SYNC_SECRET` — same value as on hols (see Vacation Tracker sync below)
-5. **Connect a database** — in Vercel → your project → **Storage** → add **Neon Postgres** (this sets `DATABASE_URL`).
-
-   If `awk -F= '/^DATABASE_URL=/{print length($2)}' .env.production.local` prints **2**, the value is `""` (empty). The Neon integration is linked but credentials were not injected. Fix:
-   - Vercel → Storage → Neon → **Open in Neon Console** → copy the **pooled** connection string
-   - Vercel → Settings → Environment Variables → set `DATABASE_URL` for Production + Preview
-   - Re-run `vercel env pull .env.production.local --environment=production --yes`
-   - Or paste into `.env.local` locally and run `npm run db:setup`
-
-6. Deploy, then initialize the production database from your Mac:
+4. Deploy, then initialize the production database:
 
 ```bash
 vercel link
@@ -63,15 +58,14 @@ chmod +x scripts/setup-production-db.sh
 npm run db:setup
 ```
 
-`db:setup` checks that `DATABASE_URL` is not empty, writes it to `.env`, then runs `db:push` and `db:seed`.
-
-6. Add domain **meavo.app** in Vercel → Settings → Domains.
+5. Add domain **meavo.app** in Vercel → Settings → Domains.
+6. Point **hols** `DATABASE_URL` at this same Neon connection string (see hols README).
 
 ## Admin
 
 - **Users** — create accounts, assign teams, reset passwords
-- **Tool cards** — name, description, URL; grant per-user access
-- Seed creates a **Vacation Tracker** card linking to hols.meavo.app
+- **Teams** — name, colour, yearly allowance (days)
+- **Tool cards** — grant access; Vacation Tracker card controls hols login
 
 ## Related apps
 
