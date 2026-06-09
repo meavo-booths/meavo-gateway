@@ -53,11 +53,13 @@ model Account {
 }
 
 model Team {
-  id        String       @id @default(cuid())
-  name      String       @unique
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  members   TeamMember[]
+  id              String       @id @default(cuid())
+  name            String       @unique
+  color           String       @default("#EEDCDC")
+  yearlyAllowance Int          @default(25)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  members         TeamMember[]
 }
 
 model TeamMember {

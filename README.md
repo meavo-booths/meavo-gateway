@@ -2,7 +2,22 @@
 
 Company tools dashboard for [meavo.app](https://meavo.app). Users sign in and open the apps they have access to (e.g. Vacation Tracker at hols.meavo.app).
 
-Separate from the [Vacation Tracker](https://github.com/meavo-stack/hols) repo — own database, own user accounts.
+Separate from the [Vacation Tracker](https://github.com/meavo-stack/hols) repo — own database, but users with Vacation Tracker access are provisioned on hols automatically.
+
+## Vacation Tracker sync
+
+Gateway is the source of truth for **users** and **teams**. When a user is granted the Vacation Tracker card, gateway provisions their hols account (same email/password, team, and role).
+
+Set on **both** Vercel projects (same secret value):
+
+| Variable | Gateway | Hols |
+|----------|---------|------|
+| `HOLS_SYNC_URL` | `https://hols.meavo.app` | — |
+| `GATEWAY_SYNC_SECRET` | shared secret | same shared secret |
+
+Generate: `openssl rand -base64 32`
+
+After deploy, run `npm run db:push` on **both** repos if the schema changed.
 
 ## Local setup
 
@@ -29,6 +44,8 @@ Open [http://localhost:3000](http://localhost:3000).
    - `AUTH_URL` — `https://meavo.app`
    - `ADMIN_EMAILS`
    - `ADMIN_PASSWORD` (for initial seed only)
+   - `HOLS_SYNC_URL` — `https://hols.meavo.app`
+   - `GATEWAY_SYNC_SECRET` — same value as on hols (see Vacation Tracker sync below)
 5. **Connect a database** — in Vercel → your project → **Storage** → add **Neon Postgres** (this sets `DATABASE_URL`).
 
    If `awk -F= '/^DATABASE_URL=/{print length($2)}' .env.production.local` prints **2**, the value is `""` (empty). The Neon integration is linked but credentials were not injected. Fix:
