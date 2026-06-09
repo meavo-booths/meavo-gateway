@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { changeUserTeam, resetUserPassword } from "@/app/actions/admin";
+import { changeUserTeam, resetUserPassword, setUserAccess } from "@/app/actions/admin";
 import { DeleteUserButton } from "@/components/delete-user-button";
 import { Button, Input, Select } from "@/components/ui";
 
 type TeamOption = { value: string; label: string };
+type CardOption = { id: string; label: string };
 
 type AdminUser = {
   id: string;
@@ -14,17 +15,20 @@ type AdminUser = {
   teamId: string | null;
   teamName: string | null;
   role: "MANAGER" | "MEMBER" | null;
+  accessCardIds: string[];
 };
 
 function Modal({
   title,
   open,
   onClose,
+  wide = false,
   children,
 }: {
   title: string;
   open: boolean;
   onClose: () => void;
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   if (!open) return null;
@@ -35,7 +39,7 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
+        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${wide ? "max-w-md" : "max-w-sm"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
@@ -48,14 +52,17 @@ function Modal({
 function AdminUserRow({
   user,
   teamOptions,
+  cardOptions,
   canDelete,
 }: {
   user: AdminUser;
   teamOptions: TeamOption[];
+  cardOptions: CardOption[];
   canDelete: boolean;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
   const displayName = user.name ?? user.email;
   const teamLabel = user.teamName
     ? `${user.teamName} · ${user.role === "MANAGER" ? "Manager" : "Member"}`
@@ -68,8 +75,14 @@ function AdminUserRow({
           <p className="truncate font-medium text-slate-900">{displayName}</p>
           {user.name && <p className="truncate text-sm text-slate-500">{user.email}</p>}
           <p className="mt-1 text-sm text-slate-500">{teamLabel}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {user.accessCardIds.length} tool{user.accessCardIds.length !== 1 ? "s" : ""} with access
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => setAccessOpen(true)}>
+            Manage access
+          </Button>
           <Button type="button" variant="secondary" onClick={() => setTeamOpen(true)}>
             Change team
           </Button>
@@ -84,6 +97,44 @@ function AdminUserRow({
           )}
         </div>
       </li>
+
+      <Modal
+        title={`Access — ${displayName}`}
+        open={accessOpen}
+        onClose={() => setAccessOpen(false)}
+        wide
+      >
+        <form action={setUserAccess} className="space-y-4" onSubmit={() => setAccessOpen(false)}>
+          <input type="hidden" name="userId" value={user.id} />
+          <p className="text-sm text-slate-600">
+            Select tools this user can see on the dashboard.
+          </p>
+          <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
+            {cardOptions.length === 0 ? (
+              <p className="text-sm text-slate-500">No tool cards yet.</p>
+            ) : (
+              cardOptions.map((card) => (
+                <label key={card.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="cardId"
+                    value={card.id}
+                    defaultChecked={user.accessCardIds.includes(card.id)}
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+                  />
+                  <span>{card.label}</span>
+                </label>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setAccessOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Save access</Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal title={`Change team — ${displayName}`} open={teamOpen} onClose={() => setTeamOpen(false)}>
         <form action={changeUserTeam} className="space-y-4" onSubmit={() => setTeamOpen(false)}>
@@ -143,10 +194,12 @@ function AdminUserRow({
 export function AdminUsersList({
   users,
   teamOptions,
+  cardOptions,
   currentUserId,
 }: {
   users: AdminUser[];
   teamOptions: TeamOption[];
+  cardOptions: CardOption[];
   currentUserId: string;
 }) {
   if (users.length === 0) {
@@ -161,6 +214,7 @@ export function AdminUsersList({
             key={user.id}
             user={user}
             teamOptions={teamOptions}
+            cardOptions={cardOptions}
             canDelete={user.id !== currentUserId}
           />
         ))}

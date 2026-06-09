@@ -175,3 +175,23 @@ export async function setCardAccess(formData: FormData): Promise<void> {
   revalidatePath("/admin");
   revalidatePath("/");
 }
+
+export async function setUserAccess(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+  if (!userId) return;
+
+  const cardIds = formData.getAll("cardId").map((id) => String(id));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.toolCardAccess.deleteMany({ where: { userId } });
+    if (cardIds.length > 0) {
+      await tx.toolCardAccess.createMany({
+        data: cardIds.map((cardId) => ({ userId, cardId })),
+      });
+    }
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+}

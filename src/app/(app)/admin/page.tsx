@@ -29,6 +29,7 @@ export default async function AdminPage() {
           take: 1,
           select: { teamId: true, role: true, team: { select: { name: true } } },
         },
+        cardAccess: { select: { cardId: true } },
       },
     }),
     prisma.toolCard.findMany({
@@ -50,12 +51,18 @@ export default async function AdminPage() {
       teamId: membership?.teamId ?? null,
       teamName: membership?.team.name ?? null,
       role: membership?.role ?? null,
+      accessCardIds: user.cardAccess.map((a) => a.cardId),
     };
   });
 
   const userOptions = users.map((user) => ({
     id: user.id,
     label: user.name ? `${user.name} (${user.email})` : user.email,
+  }));
+
+  const cardOptions = cards.map((card) => ({
+    id: card.id,
+    label: card.name,
   }));
 
   const toolCards = cards.map((card) => ({
@@ -128,6 +135,7 @@ export default async function AdminPage() {
         <AdminUsersList
           users={adminUsers}
           teamOptions={teamOptions}
+          cardOptions={cardOptions}
           currentUserId={session.user.id}
         />
       </Card>
