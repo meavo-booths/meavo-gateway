@@ -16,7 +16,7 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-4xl">
       <PageHeader title="Account" description="Manage your display name and password." />
       <ProfileForm email={user.email} name={user.name} image={user.image} />
     </div>
