@@ -107,8 +107,8 @@ export default async function AdminPage() {
                 label="Password"
                 name="password"
                 type="password"
-                required
                 autoComplete="new-password"
+                placeholder="Optional — leave blank for Google-only"
               />
               <Select label="Team" name="teamId" required options={teamOptions} />
               <Select

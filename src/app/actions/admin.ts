@@ -19,19 +19,19 @@ export async function createUser(formData: FormData): Promise<void> {
   await requireAdmin();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const name = (formData.get("name") as string)?.trim() || null;
-  const password = formData.get("password") as string;
+  const password = (formData.get("password") as string)?.trim();
   const makeAdmin = formData.get("makeAdmin") === "on";
   const teamId = formData.get("teamId") as string;
   const role =
     (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
 
   if (!email || !teamId) return;
-  if (!password || password.length < 8) return;
+  if (password && password.length < 8) return;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return;
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = password ? await hashPassword(password) : null;
 
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
