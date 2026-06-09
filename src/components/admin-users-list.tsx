@@ -13,6 +13,7 @@ type AdminUser = {
   email: string;
   teamId: string | null;
   teamName: string | null;
+  role: "MANAGER" | "MEMBER" | null;
 };
 
 function Modal({
@@ -56,7 +57,9 @@ function AdminUserRow({
   const [resetOpen, setResetOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const displayName = user.name ?? user.email;
-  const teamLabel = user.teamName ?? "No team assigned";
+  const teamLabel = user.teamName
+    ? `${user.teamName} · ${user.role === "MANAGER" ? "Manager" : "Member"}`
+    : "No team assigned";
 
   return (
     <>
@@ -91,6 +94,15 @@ function AdminUserRow({
             required
             defaultValue={user.teamId ?? teamOptions[0]?.value}
             options={teamOptions}
+          />
+          <Select
+            label="Role"
+            name="role"
+            defaultValue={user.role ?? "MEMBER"}
+            options={[
+              { value: "MEMBER", label: "Member" },
+              { value: "MANAGER", label: "Manager" },
+            ]}
           />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setTeamOpen(false)}>

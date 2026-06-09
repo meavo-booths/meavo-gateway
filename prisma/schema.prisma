@@ -12,6 +12,11 @@ enum SystemRole {
   USER
 }
 
+enum TeamRole {
+  MANAGER
+  MEMBER
+}
+
 model User {
   id            String     @id @default(cuid())
   name          String?
@@ -59,6 +64,7 @@ model TeamMember {
   id        String   @id @default(cuid())
   userId    String
   teamId    String
+  role      TeamRole @default(MEMBER)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -29,14 +29,24 @@ Open [http://localhost:3000](http://localhost:3000).
    - `AUTH_URL` — `https://meavo.app`
    - `ADMIN_EMAILS`
    - `ADMIN_PASSWORD` (for initial seed only)
-5. Deploy, then run locally against production DB:
+5. **Connect a database** — in Vercel → your project → **Storage** → add **Neon Postgres** (this sets `DATABASE_URL`).
+
+   If `awk -F= '/^DATABASE_URL=/{print length($2)}' .env.production.local` prints **2**, the value is `""` (empty). The Neon integration is linked but credentials were not injected. Fix:
+   - Vercel → Storage → Neon → **Open in Neon Console** → copy the **pooled** connection string
+   - Vercel → Settings → Environment Variables → set `DATABASE_URL` for Production + Preview
+   - Re-run `vercel env pull .env.production.local --environment=production --yes`
+   - Or paste into `.env.local` locally and run `npm run db:setup`
+
+6. Deploy, then initialize the production database from your Mac:
 
 ```bash
 vercel link
 vercel env pull .env.production.local --environment=production
-npm run db:push
-npm run db:seed
+chmod +x scripts/setup-production-db.sh
+npm run db:setup
 ```
+
+`db:setup` checks that `DATABASE_URL` is not empty, writes it to `.env`, then runs `db:push` and `db:seed`.
 
 6. Add domain **meavo.app** in Vercel → Settings → Domains.
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SystemRole } from "@prisma/client";
+import { SystemRole, TeamRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
@@ -21,6 +21,8 @@ export async function createUser(formData: FormData): Promise<void> {
   const password = formData.get("password") as string;
   const makeAdmin = formData.get("makeAdmin") === "on";
   const teamId = formData.get("teamId") as string;
+  const role =
+    (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
 
   if (!email || !teamId) return;
   if (!password || password.length < 8) return;
@@ -41,7 +43,7 @@ export async function createUser(formData: FormData): Promise<void> {
     });
 
     await tx.teamMember.create({
-      data: { userId: user.id, teamId },
+      data: { userId: user.id, teamId, role },
     });
   });
 
@@ -89,12 +91,14 @@ export async function changeUserTeam(formData: FormData): Promise<void> {
   await requireAdmin();
   const userId = formData.get("userId") as string;
   const teamId = formData.get("teamId") as string;
+  const role =
+    (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
 
   if (!userId || !teamId) return;
 
   await prisma.$transaction(async (tx) => {
     await tx.teamMember.deleteMany({ where: { userId } });
-    await tx.teamMember.create({ data: { userId, teamId } });
+    await tx.teamMember.create({ data: { userId, teamId, role } });
   });
 
   revalidatePath("/admin");

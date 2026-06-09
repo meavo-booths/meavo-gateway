@@ -22,7 +22,6 @@ export default async function LoginPage() {
             className="h-12 w-auto object-contain"
             priority
           />
-          <p className="mt-3 text-lg font-semibold text-slate-900">Meavo</p>
         </div>
         <p className="mt-4 text-slate-600">
           Sign in to access your company tools and apps.

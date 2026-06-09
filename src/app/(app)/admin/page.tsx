@@ -27,7 +27,7 @@ export default async function AdminPage() {
         teamMembers: {
           orderBy: { createdAt: "asc" },
           take: 1,
-          select: { teamId: true, team: { select: { name: true } } },
+          select: { teamId: true, role: true, team: { select: { name: true } } },
         },
       },
     }),
@@ -49,6 +49,7 @@ export default async function AdminPage() {
       email: user.email,
       teamId: membership?.teamId ?? null,
       teamName: membership?.team.name ?? null,
+      role: membership?.role ?? null,
     };
   });
 
@@ -92,6 +93,15 @@ export default async function AdminPage() {
                 autoComplete="new-password"
               />
               <Select label="Team" name="teamId" required options={teamOptions} />
+              <Select
+                label="Team role"
+                name="role"
+                defaultValue="MEMBER"
+                options={[
+                  { value: "MEMBER", label: "Member" },
+                  { value: "MANAGER", label: "Manager" },
+                ]}
+              />
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" name="makeAdmin" className="rounded border-slate-300" />
                 Admin access
