@@ -24,6 +24,7 @@ export async function Nav() {
       links={visibleLinks}
       userName={session.user.name}
       userEmail={session.user.email}
+      userImage={session.user.image}
     />
   );
 }
