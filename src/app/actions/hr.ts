@@ -91,7 +91,7 @@ export async function uploadEmployeeDocument(
       employeeId,
       fileName: file.name,
       mimeType: file.type,
-      storageKey: blob.url,
+      storageKey: blob.pathname,
       uploadedBy: hrUser.id,
     },
   });

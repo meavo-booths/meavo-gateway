@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { head } from "@vercel/blob";
+import { get } from "@vercel/blob";
 import { hasHrAccess } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,20 +23,14 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const blob = await head(doc.storageKey);
-  if (!blob?.downloadUrl) {
+  const result = await get(doc.storageKey, { access: "private" });
+  if (!result || result.statusCode !== 200 || !result.stream) {
     return NextResponse.json({ error: "File unavailable" }, { status: 404 });
   }
 
-  const fileRes = await fetch(blob.downloadUrl);
-  if (!fileRes.ok) {
-    return NextResponse.json({ error: "File unavailable" }, { status: 404 });
-  }
-
-  const body = await fileRes.arrayBuffer();
-  return new NextResponse(body, {
+  return new NextResponse(result.stream, {
     headers: {
-      "Content-Type": doc.mimeType,
+      "Content-Type": doc.mimeType || result.blob.contentType,
       "Content-Disposition": `inline; filename="${doc.fileName.replace(/"/g, "")}"`,
     },
   });
