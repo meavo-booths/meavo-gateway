@@ -26,7 +26,7 @@ type HrDocument = {
 type HrEmployee = {
   id: string;
   company: "MEAVO" | "OA";
-  contract: "FTE" | "FREELANCE" | "PAST_EMPLOYEE";
+  contract: "FTE" | "FREELANCE";
   startDate: string;
   endDate: string | null;
   role: string;
@@ -49,7 +49,6 @@ const COMPANY_OPTIONS = [
 const CONTRACT_OPTIONS = [
   { value: "FTE", label: "FTE" },
   { value: "FREELANCE", label: "Freelance" },
-  { value: "PAST_EMPLOYEE", label: "Past Employee" },
 ];
 
 function Modal({
@@ -98,7 +97,6 @@ function toDateInputValue(iso: string) {
 function employeeForStatus(employee: HrEmployee) {
   return {
     endDate: employee.endDate ? new Date(employee.endDate) : null,
-    contract: employee.contract,
   };
 }
 
@@ -231,12 +229,7 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
         >
           <input type="hidden" name="userId" value={user.id} />
           <Select label="Company" name="company" required options={COMPANY_OPTIONS} />
-          <Select
-            label="Contract"
-            name="contract"
-            required
-            options={CONTRACT_OPTIONS.filter((option) => option.value !== "PAST_EMPLOYEE")}
-          />
+          <Select label="Contract" name="contract" required options={CONTRACT_OPTIONS} />
           <Input label="Starting date" name="startDate" type="date" required />
           <Input label="Role" name="role" required placeholder="e.g. Software Engineer" />
           {hireError && <p className="text-sm text-red-600">{hireError}</p>}
@@ -438,10 +431,12 @@ function FilterCheckboxGroup({
 
 export function HrFilters({
   userTypes,
+  statuses,
   companies,
   contracts,
 }: {
   userTypes: string[];
+  statuses: string[];
   companies: string[];
   contracts: string[];
 }) {
@@ -451,13 +446,13 @@ export function HrFilters({
   return (
     <Card>
       <form
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-start"
         onSubmit={(e) => {
           e.preventDefault();
           const formData = new FormData(e.currentTarget);
           const params = new URLSearchParams();
 
-          for (const key of ["userType", "company", "contract"]) {
+          for (const key of ["userType", "status", "company", "contract"]) {
             const values = formData.getAll(key).map((value) => String(value));
             if (values.length > 0) params.set(key, values.join(","));
           }
@@ -474,7 +469,15 @@ export function HrFilters({
           options={[
             { value: "user", label: "Users" },
             { value: "employee", label: "Employees" },
-            { value: "past_employee", label: "Past employees" },
+          ]}
+        />
+        <FilterCheckboxGroup
+          legend="Status"
+          name="status"
+          selected={statuses}
+          options={[
+            { value: "active", label: "Active" },
+            { value: "past", label: "Past" },
           ]}
         />
         <FilterCheckboxGroup
@@ -489,7 +492,7 @@ export function HrFilters({
           selected={contracts}
           options={CONTRACT_OPTIONS}
         />
-        <div className="flex items-end lg:col-span-1">
+        <div className="flex items-end sm:col-span-2 xl:col-span-1">
           <Button type="submit" disabled={pending} className="w-full sm:w-auto">
             {pending ? "Filtering…" : "Apply filters"}
           </Button>

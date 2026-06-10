@@ -1,17 +1,24 @@
 import { Company, ContractType, Prisma } from "@prisma/client";
 import { startOfUtcDay } from "@/lib/hr-employee";
 
-export type HrUserTypeFilter = "user" | "employee" | "past_employee";
+export type HrUserTypeFilter = "user" | "employee";
+export type HrStatusFilter = "active" | "past";
 export type HrCompanyFilter = Company;
 export type HrContractFilter = ContractType;
 
-const USER_TYPE_VALUES: HrUserTypeFilter[] = ["user", "employee", "past_employee"];
+export const DEFAULT_HR_FILTERS = {
+  userTypes: ["employee"] as HrUserTypeFilter[],
+  statuses: ["active"] as HrStatusFilter[],
+  companies: [] as HrCompanyFilter[],
+  contracts: [] as HrContractFilter[],
+};
+
+const USER_TYPE_VALUES: HrUserTypeFilter[] = ["user", "employee"];
+const STATUS_VALUES: HrStatusFilter[] = ["active", "past"];
 const COMPANY_VALUES: HrCompanyFilter[] = [Company.MEAVO, Company.OA];
-const CONTRACT_VALUES: HrContractFilter[] = [
-  ContractType.FTE,
-  ContractType.FREELANCE,
-  ContractType.PAST_EMPLOYEE,
-];
+const CONTRACT_VALUES: HrContractFilter[] = [ContractType.FTE, ContractType.FREELANCE];
+
+const FILTER_PARAM_KEYS = ["userType", "status", "company", "contract"] as const;
 
 function parseMultiParam<T extends string>(
   value: string | string[] | undefined,
@@ -27,6 +34,10 @@ function parseMultiParam<T extends string>(
   return [...new Set(selected)];
 }
 
+function hasFilterParams(searchParams: Record<string, string | string[] | undefined>): boolean {
+  return FILTER_PARAM_KEYS.some((key) => searchParams[key] !== undefined);
+}
+
 function todayUtc(): Date {
   return startOfUtcDay(new Date());
 }
@@ -36,11 +47,7 @@ function activeEmployeeWhere(
 ): Prisma.EmployeeWhereInput {
   const today = todayUtc();
   return {
-    AND: [
-      extra,
-      { contract: { not: ContractType.PAST_EMPLOYEE } },
-      { OR: [{ endDate: null }, { endDate: { gte: today } }] },
-    ],
+    AND: [extra, { OR: [{ endDate: null }, { endDate: { gte: today } }] }],
   };
 }
 
@@ -49,12 +56,7 @@ function pastEmployeeWhere(
 ): Prisma.EmployeeWhereInput {
   const today = todayUtc();
   return {
-    AND: [
-      extra,
-      {
-        OR: [{ contract: ContractType.PAST_EMPLOYEE }, { endDate: { lt: today } }],
-      },
-    ],
+    AND: [extra, { endDate: { lt: today } }],
   };
 }
 
@@ -68,52 +70,80 @@ function employeeFieldFilters(
   return filters;
 }
 
+function mergeEmployeeWhere(
+  ...parts: (Prisma.EmployeeWhereInput | null | undefined)[]
+): Prisma.EmployeeWhereInput {
+  const andParts = parts.filter(
+    (part): part is Prisma.EmployeeWhereInput => Boolean(part && Object.keys(part).length > 0)
+  );
+  if (andParts.length === 0) return {};
+  if (andParts.length === 1) return andParts[0];
+  return { AND: andParts };
+}
+
+function employeeStatusWhere(statuses: HrStatusFilter[]): Prisma.EmployeeWhereInput | null {
+  const active = statuses.includes("active");
+  const past = statuses.includes("past");
+  if (active && past) return null;
+  if (active) return activeEmployeeWhere();
+  if (past) return pastEmployeeWhere();
+  return null;
+}
+
 export function buildHrUserWhere({
   userTypes,
+  statuses,
   companies,
   contracts,
 }: {
   userTypes: HrUserTypeFilter[];
+  statuses: HrStatusFilter[];
   companies: HrCompanyFilter[];
   contracts: HrContractFilter[];
 }): Prisma.UserWhereInput {
-  const employeeFilters = employeeFieldFilters(companies, contracts);
-  const hasEmployeeFilters = Object.keys(employeeFilters).length > 0;
+  const fieldFilters = employeeFieldFilters(companies, contracts);
+  const hasFieldFilters = Object.keys(fieldFilters).length > 0;
+  const statusFilter = employeeStatusWhere(statuses);
+  const employeeWhere = mergeEmployeeWhere(
+    hasFieldFilters ? fieldFilters : null,
+    statusFilter
+  );
+  const hasEmployeeWhere = Object.keys(employeeWhere).length > 0;
 
-  if (userTypes.length === 0) {
-    if (!hasEmployeeFilters) return {};
-    return { employee: { is: employeeFilters } };
+  const showUsers = userTypes.length === 0 || userTypes.includes("user");
+  const showEmployees = userTypes.length === 0 || userTypes.includes("employee");
+
+  if (showUsers && showEmployees) {
+    if (!hasEmployeeWhere) return {};
+    return {
+      OR: [{ employee: { is: null } }, { employee: { is: employeeWhere } }],
+    };
   }
 
-  const typeConditions: Prisma.UserWhereInput[] = userTypes.map((userType) => {
-    if (userType === "user") {
-      return { employee: { is: null } };
-    }
-    if (userType === "employee") {
-      return {
-        employee: {
-          is: hasEmployeeFilters ? activeEmployeeWhere(employeeFilters) : activeEmployeeWhere(),
-        },
-      };
-    }
-    return {
-      employee: {
-        is: hasEmployeeFilters ? pastEmployeeWhere(employeeFilters) : pastEmployeeWhere(),
-      },
-    };
-  });
+  if (showUsers) {
+    return { employee: { is: null } };
+  }
 
-  if (typeConditions.length === 1) return typeConditions[0];
-  return { OR: typeConditions };
+  if (!hasEmployeeWhere) {
+    return { employee: { isNot: null } };
+  }
+
+  return { employee: { is: employeeWhere } };
 }
 
 export function parseHrFilters(searchParams: {
   userType?: string | string[];
+  status?: string | string[];
   company?: string | string[];
   contract?: string | string[];
 }) {
+  if (!hasFilterParams(searchParams)) {
+    return { ...DEFAULT_HR_FILTERS };
+  }
+
   return {
     userTypes: parseMultiParam(searchParams.userType, USER_TYPE_VALUES),
+    statuses: parseMultiParam(searchParams.status, STATUS_VALUES),
     companies: parseMultiParam(searchParams.company, COMPANY_VALUES),
     contracts: parseMultiParam(searchParams.contract, CONTRACT_VALUES),
   };

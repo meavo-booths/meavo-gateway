@@ -11,6 +11,7 @@ export default async function HrPage({
 }: {
   searchParams: Promise<{
     userType?: string | string[];
+    status?: string | string[];
     company?: string | string[];
     contract?: string | string[];
   }>;
@@ -82,6 +83,7 @@ export default async function HrPage({
       />
       <HrFilters
         userTypes={filters.userTypes}
+        statuses={filters.statuses}
         companies={filters.companies}
         contracts={filters.contracts}
       />

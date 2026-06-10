@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { Company, ContractType } from "@prisma/client";
 import { del, put } from "@vercel/blob";
-import { startOfUtcDay } from "@/lib/hr-employee";
 import { requireHr } from "@/lib/hr-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -14,9 +13,7 @@ function parseCompany(value: string): Company | null {
 }
 
 function parseContract(value: string): ContractType | null {
-  return value === "FTE" || value === "FREELANCE" || value === "PAST_EMPLOYEE"
-    ? value
-    : null;
+  return value === "FTE" || value === "FREELANCE" ? value : null;
 }
 
 function parseDate(value: string): Date | null {
@@ -81,7 +78,7 @@ export async function updateEmployee(formData: FormData): Promise<{ error?: stri
 
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
-    select: { id: true, endDate: true, contract: true },
+    select: { id: true },
   });
   if (!employee) {
     return { error: "Employee not found." };
@@ -89,19 +86,7 @@ export async function updateEmployee(formData: FormData): Promise<{ error?: stri
 
   await prisma.employee.update({
     where: { id: employeeId },
-    data: {
-      company,
-      contract,
-      startDate,
-      role,
-      ...(contract === ContractType.PAST_EMPLOYEE && !employee.endDate
-        ? { endDate: startOfUtcDay(new Date()) }
-        : {}),
-      ...(contract !== ContractType.PAST_EMPLOYEE &&
-      employee.contract === ContractType.PAST_EMPLOYEE
-        ? { endDate: null }
-        : {}),
-    },
+    data: { company, contract, startDate, role },
   });
 
   revalidatePath("/hr");
@@ -131,14 +116,9 @@ export async function endEmployeeContract(formData: FormData): Promise<{ error?:
     return { error: "Employee not found." };
   }
 
-  const ended = startOfUtcDay(endDate) <= startOfUtcDay(new Date());
-
   await prisma.employee.update({
     where: { id: employeeId },
-    data: {
-      endDate,
-      ...(ended ? { contract: ContractType.PAST_EMPLOYEE } : {}),
-    },
+    data: { endDate },
   });
 
   revalidatePath("/hr");
