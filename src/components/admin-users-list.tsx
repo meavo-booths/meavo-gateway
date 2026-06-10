@@ -56,11 +56,13 @@ function AdminUserRow({
   teamOptions,
   cardOptions,
   canDelete,
+  canGrantHr,
 }: {
   user: AdminUser;
   teamOptions: TeamOption[];
   cardOptions: CardOption[];
   canDelete: boolean;
+  canGrantHr: boolean;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
@@ -119,15 +121,17 @@ function AdminUserRow({
               />
               <span>Admin access</span>
             </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="grantHr"
-                defaultChecked={user.hrAccess}
-                className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-              />
-              <span>HR access</span>
-            </label>
+            {canGrantHr && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="grantHr"
+                  defaultChecked={user.hrAccess}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+                />
+                <span>HR access</span>
+              </label>
+            )}
           </div>
           <p className="text-sm text-slate-600">
             Select tools this user can see on the dashboard.
@@ -219,11 +223,13 @@ export function AdminUsersList({
   teamOptions,
   cardOptions,
   currentUserId,
+  canGrantHr,
 }: {
   users: AdminUser[];
   teamOptions: TeamOption[];
   cardOptions: CardOption[];
   currentUserId: string;
+  canGrantHr: boolean;
 }) {
   if (users.length === 0) {
     return <p className="mt-4 text-sm text-slate-500">No users yet.</p>;
@@ -239,6 +245,7 @@ export function AdminUsersList({
             teamOptions={teamOptions}
             cardOptions={cardOptions}
             canDelete={user.id !== currentUserId}
+            canGrantHr={canGrantHr}
           />
         ))}
       </ul>

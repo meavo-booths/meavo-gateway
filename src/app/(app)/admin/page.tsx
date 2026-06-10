@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { resolveTeamColor } from "@/lib/team-colors";
 import {
   createTeam,
@@ -19,6 +19,8 @@ export default async function AdminPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (!(await isAdmin(session.user.id))) redirect("/");
+
+  const canGrantHr = await canGrantHrAccess(session.user.id);
 
   const [teams, users, cards] = await Promise.all([
     prisma.team.findMany({
@@ -128,10 +130,12 @@ export default async function AdminPage() {
                 <input type="checkbox" name="makeAdmin" className="rounded border-slate-300" />
                 Admin access
               </label>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" name="grantHr" className="rounded border-slate-300" />
-                HR access
-              </label>
+              {canGrantHr && (
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="grantHr" className="rounded border-slate-300" />
+                  HR access
+                </label>
+              )}
               <Button type="submit">Create user</Button>
             </form>
           )}
@@ -165,6 +169,7 @@ export default async function AdminPage() {
           teamOptions={teamOptions}
           cardOptions={cardOptions}
           currentUserId={session.user.id}
+          canGrantHr={canGrantHr}
         />
       </Card>
 

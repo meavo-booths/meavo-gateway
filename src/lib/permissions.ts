@@ -15,3 +15,19 @@ export async function hasHrAccess(userId: string): Promise<boolean> {
   });
   return user?.hrAccess === true;
 }
+
+function hrAccessGrantorEmail(): string | null {
+  const email = process.env.HR_ACCESS_GRANTOR_EMAIL?.trim().toLowerCase();
+  return email || null;
+}
+
+export async function canGrantHrAccess(userId: string): Promise<boolean> {
+  const grantorEmail = hrAccessGrantorEmail();
+  if (!grantorEmail) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  return user?.email.toLowerCase() === grantorEmail;
+}

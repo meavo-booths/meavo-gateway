@@ -5,7 +5,7 @@ import { SystemRole, TeamRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
 
 async function requireAdmin() {
@@ -16,12 +16,13 @@ async function requireAdmin() {
 }
 
 export async function createUser(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const name = (formData.get("name") as string)?.trim() || null;
   const password = (formData.get("password") as string)?.trim();
   const makeAdmin = formData.get("makeAdmin") === "on";
-  const grantHr = formData.get("grantHr") === "on";
+  const grantHr =
+    formData.get("grantHr") === "on" && (await canGrantHrAccess(admin.id));
   const teamId = formData.get("teamId") as string;
   const role =
     (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
@@ -226,19 +227,23 @@ export async function setCardAccess(formData: FormData): Promise<void> {
 }
 
 export async function setUserAccess(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const userId = formData.get("userId") as string;
   if (!userId) return;
 
   const cardIds = formData.getAll("cardId").map((id) => String(id));
   const makeAdmin = formData.get("makeAdmin") === "on";
-  const grantHr = formData.get("grantHr") === "on";
+  const grantHrRequested = formData.get("grantHr") === "on";
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { systemRole: true },
+    select: { systemRole: true, hrAccess: true },
   });
   if (!user) return;
+
+  const grantHr = (await canGrantHrAccess(admin.id))
+    ? grantHrRequested
+    : user.hrAccess;
 
   if (user.systemRole === SystemRole.ADMIN && !makeAdmin) {
     const adminCount = await prisma.user.count({
