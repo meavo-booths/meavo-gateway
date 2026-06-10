@@ -76,7 +76,7 @@ The `/hr` page is an employee database for users with **HR access** (separate fr
 - List all users; **Hire** converts a user to an employee (company, contract type, start date, role)
 - **Edit** employee company, contract, start date, and role after hiring
 - **End contract** with a past or future end date; past dates mark the employee as a past employee
-- Filter by user type, status (active/past), company (MEAVO/OA), and contract (FTE/Freelance) — filters support multiple selections; default view shows active employees only
+- Filter by user type, status (active/past), company (MEAVO/OA), and contract (FTE/Freelance) — filters support multiple selections; default view filters to active status only
 - Attach contract PDFs to employee profiles (stored in Vercel Blob)
 
 Grant HR access when creating a user or via **Manage access** on the Admin users list. Only users whose emails are listed in `HR_ACCESS_GRANTOR_EMAIL` (comma-separated) see the HR checkbox and can change HR access.

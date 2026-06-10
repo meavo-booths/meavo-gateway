@@ -7,7 +7,7 @@ export type HrCompanyFilter = Company;
 export type HrContractFilter = ContractType;
 
 export const DEFAULT_HR_FILTERS = {
-  userTypes: ["employee"] as HrUserTypeFilter[],
+  userTypes: [] as HrUserTypeFilter[],
   statuses: ["active"] as HrStatusFilter[],
   companies: [] as HrCompanyFilter[],
   contracts: [] as HrContractFilter[],
