@@ -49,6 +49,7 @@ For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db
    - `AUTH_URL` — `https://meavo.app`
    - `ADMIN_EMAILS`
    - `ADMIN_PASSWORD` (for initial seed only)
+   - `BLOB_READ_WRITE_TOKEN` — Vercel Blob (HR contract PDFs); create in Vercel Storage → Blob
 4. Deploy, then initialize the production database:
 
 ```bash
@@ -63,9 +64,23 @@ npm run db:setup
 
 ## Admin
 
-- **Users** — create accounts, assign teams, reset passwords
+- **Users** — create accounts, assign teams, reset passwords, grant Admin / HR access
 - **Teams** — name, colour, yearly allowance (days)
 - **Tool cards** — grant access; Vacation Tracker card controls hols login
+
+## HR (confidential)
+
+The `/hr` page is an employee database for users with **HR access** (separate from Admin).
+
+- List all users; **Hire** converts a user to an employee (company, contract type, start date, role)
+- Filter by user type, company (MEAVO/OA), contract (FTE/Freelance)
+- Attach contract PDFs to employee profiles (stored in Vercel Blob)
+
+Grant HR access when creating a user or via **Manage access** on the Admin users list.
+
+After deploying HR schema changes, run `npm run db:push` from **either** repo against the shared Neon database (hols schema includes all tables). Do not push from gateway alone if the schema is missing vacation models.
+
+**Important:** Gateway and hols share one database. Always use a schema that includes both gateway and hols models before `db:push`, or you risk dropping hols tables.
 
 ## Related apps
 

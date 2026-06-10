@@ -35,6 +35,8 @@ export default async function AdminPage() {
         id: true,
         name: true,
         email: true,
+        systemRole: true,
+        hrAccess: true,
         teamMembers: {
           orderBy: { createdAt: "asc" },
           take: 1,
@@ -59,6 +61,8 @@ export default async function AdminPage() {
       id: user.id,
       name: user.name,
       email: user.email,
+      isAdmin: user.systemRole === "ADMIN",
+      hrAccess: user.hrAccess,
       teamId: membership?.teamId ?? null,
       teamName: membership?.team.name ?? null,
       role: membership?.role ?? null,
@@ -123,6 +127,10 @@ export default async function AdminPage() {
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" name="makeAdmin" className="rounded border-slate-300" />
                 Admin access
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="grantHr" className="rounded border-slate-300" />
+                HR access
               </label>
               <Button type="submit">Create user</Button>
             </form>

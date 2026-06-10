@@ -12,6 +12,8 @@ type AdminUser = {
   id: string;
   name: string | null;
   email: string;
+  isAdmin: boolean;
+  hrAccess: boolean;
   teamId: string | null;
   teamName: string | null;
   role: "MANAGER" | "MEMBER" | null;
@@ -106,6 +108,27 @@ function AdminUserRow({
       >
         <form action={setUserAccess} className="space-y-4" onSubmit={() => setAccessOpen(false)}>
           <input type="hidden" name="userId" value={user.id} />
+          <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+            <p className="text-sm font-medium text-slate-700">Privileges</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="makeAdmin"
+                defaultChecked={user.isAdmin}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+              />
+              <span>Admin access</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="grantHr"
+                defaultChecked={user.hrAccess}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+              />
+              <span>HR access</span>
+            </label>
+          </div>
           <p className="text-sm text-slate-600">
             Select tools this user can see on the dashboard.
           </p>

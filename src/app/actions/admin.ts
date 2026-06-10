@@ -21,6 +21,7 @@ export async function createUser(formData: FormData): Promise<void> {
   const name = (formData.get("name") as string)?.trim() || null;
   const password = (formData.get("password") as string)?.trim();
   const makeAdmin = formData.get("makeAdmin") === "on";
+  const grantHr = formData.get("grantHr") === "on";
   const teamId = formData.get("teamId") as string;
   const role =
     (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
@@ -40,6 +41,7 @@ export async function createUser(formData: FormData): Promise<void> {
         name,
         passwordHash,
         systemRole: makeAdmin ? SystemRole.ADMIN : SystemRole.USER,
+        hrAccess: grantHr,
       },
     });
 
@@ -229,8 +231,31 @@ export async function setUserAccess(formData: FormData): Promise<void> {
   if (!userId) return;
 
   const cardIds = formData.getAll("cardId").map((id) => String(id));
+  const makeAdmin = formData.get("makeAdmin") === "on";
+  const grantHr = formData.get("grantHr") === "on";
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { systemRole: true },
+  });
+  if (!user) return;
+
+  if (user.systemRole === SystemRole.ADMIN && !makeAdmin) {
+    const adminCount = await prisma.user.count({
+      where: { systemRole: SystemRole.ADMIN },
+    });
+    if (adminCount <= 1) return;
+  }
 
   await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        systemRole: makeAdmin ? SystemRole.ADMIN : SystemRole.USER,
+        hrAccess: grantHr,
+      },
+    });
+
     await tx.toolCardAccess.deleteMany({ where: { userId } });
     if (cardIds.length > 0) {
       await tx.toolCardAccess.createMany({
@@ -241,4 +266,5 @@ export async function setUserAccess(formData: FormData): Promise<void> {
 
   revalidatePath("/admin");
   revalidatePath("/");
+  revalidatePath("/hr");
 }

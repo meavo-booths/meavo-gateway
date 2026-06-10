@@ -84,25 +84,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
+      }
+      if (token.id) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { systemRole: true },
+          where: { id: token.id as string },
+          select: { systemRole: true, hrAccess: true },
         });
         token.systemRole = dbUser?.systemRole ?? SystemRole.USER;
+        token.hrAccess = dbUser?.hrAccess ?? false;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        session.user.systemRole = (token.systemRole as SystemRole) ?? SystemRole.USER;
+        session.user.hrAccess = token.hrAccess === true;
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { name: true, email: true, image: true, systemRole: true },
+          select: { name: true, email: true, image: true },
         });
         session.user.name = dbUser?.name ?? null;
         session.user.email = dbUser?.email ?? session.user.email;
         session.user.image = dbUser?.image ?? null;
-        session.user.systemRole = dbUser?.systemRole ?? SystemRole.USER;
       }
       return session;
     },
