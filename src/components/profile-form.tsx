@@ -5,14 +5,22 @@ import { changePassword, updateProfileName } from "@/app/actions/profile";
 import { Button, Card, Input } from "@/components/ui";
 import { UserAvatar } from "@/components/user-avatar";
 
+type ProfileTeam = {
+  name: string;
+  color: string;
+  role: "MANAGER" | "MEMBER";
+};
+
 export function ProfileForm({
   email,
   name,
   image,
+  teams,
 }: {
   email: string;
   name: string | null;
   image: string | null;
+  teams: ProfileTeam[];
 }) {
   const [nameSuccess, setNameSuccess] = useState(false);
   const [namePending, startNameTransition] = useTransition();
@@ -45,6 +53,30 @@ export function ProfileForm({
           <div className="text-sm">
             <p className="font-medium text-slate-700">Email</p>
             <p className="mt-1 text-slate-600">{email}</p>
+          </div>
+          <div className="text-sm">
+            <p className="font-medium text-slate-700">Team</p>
+            {teams.length === 0 ? (
+              <p className="mt-1 text-slate-500">Not assigned to a team</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {teams.map((team) => (
+                  <li key={team.name} className="flex items-center gap-2 text-slate-600">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full border border-slate-200"
+                      style={{ backgroundColor: team.color }}
+                      aria-hidden
+                    />
+                    <span>
+                      {team.name}
+                      {team.role === "MANAGER" && (
+                        <span className="text-slate-400"> · Manager</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <Input
             label="Display name"

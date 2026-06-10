@@ -5,7 +5,7 @@ import { NavBar } from "@/components/nav-bar";
 const links: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/", label: "Home" },
   { href: "/admin", label: "Admin", adminOnly: true },
-  { href: "/profile", label: "Account" },
+  { href: "/profile", label: "Profile" },
 ];
 
 export async function Nav() {
