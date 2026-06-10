@@ -9,7 +9,11 @@ import { PageHeader } from "@/components/ui";
 export default async function HrPage({
   searchParams,
 }: {
-  searchParams: Promise<{ userType?: string; company?: string; contract?: string }>;
+  searchParams: Promise<{
+    userType?: string | string[];
+    company?: string | string[];
+    contract?: string | string[];
+  }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -37,6 +41,7 @@ export default async function HrPage({
           company: true,
           contract: true,
           startDate: true,
+          endDate: true,
           role: true,
           documents: {
             orderBy: { createdAt: "desc" },
@@ -58,6 +63,7 @@ export default async function HrPage({
           company: user.employee.company,
           contract: user.employee.contract,
           startDate: user.employee.startDate.toISOString(),
+          endDate: user.employee.endDate?.toISOString() ?? null,
           role: user.employee.role,
           documents: user.employee.documents.map((doc) => ({
             id: doc.id,
@@ -75,9 +81,9 @@ export default async function HrPage({
         description="Confidential employee database. Access is restricted to HR users only."
       />
       <HrFilters
-        userType={filters.userType}
-        company={filters.company}
-        contract={filters.contract}
+        userTypes={filters.userTypes}
+        companies={filters.companies}
+        contracts={filters.contracts}
       />
       <HrUserList users={rows} />
     </div>

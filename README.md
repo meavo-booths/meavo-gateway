@@ -74,7 +74,9 @@ npm run db:setup
 The `/hr` page is an employee database for users with **HR access** (separate from Admin).
 
 - List all users; **Hire** converts a user to an employee (company, contract type, start date, role)
-- Filter by user type, company (MEAVO/OA), contract (FTE/Freelance)
+- **Edit** employee company, contract, start date, and role after hiring
+- **End contract** with a past or future end date; past dates mark the employee as a past employee
+- Filter by user type, company (MEAVO/OA), contract (FTE/Freelance/Past Employee) — filters support multiple selections
 - Attach contract PDFs to employee profiles (stored in Vercel Blob)
 
 Grant HR access when creating a user or via **Manage access** on the Admin users list. Only users whose emails are listed in `HR_ACCESS_GRANTOR_EMAIL` (comma-separated) see the HR checkbox and can change HR access.

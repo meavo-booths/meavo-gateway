@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Company, ContractType } from "@prisma/client";
 import { del, put } from "@vercel/blob";
+import { startOfUtcDay } from "@/lib/hr-employee";
 import { requireHr } from "@/lib/hr-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +14,14 @@ function parseCompany(value: string): Company | null {
 }
 
 function parseContract(value: string): ContractType | null {
-  return value === "FTE" || value === "FREELANCE" ? value : null;
+  return value === "FTE" || value === "FREELANCE" || value === "PAST_EMPLOYEE"
+    ? value
+    : null;
+}
+
+function parseDate(value: string): Date | null {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export async function hireEmployee(formData: FormData): Promise<{ error?: string }> {
@@ -46,6 +54,90 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
       contract,
       startDate,
       role,
+    },
+  });
+
+  revalidatePath("/hr");
+  return {};
+}
+
+export async function updateEmployee(formData: FormData): Promise<{ error?: string }> {
+  await requireHr();
+
+  const employeeId = formData.get("employeeId") as string;
+  const company = parseCompany(formData.get("company") as string);
+  const contract = parseContract(formData.get("contract") as string);
+  const startDateRaw = formData.get("startDate") as string;
+  const role = (formData.get("role") as string)?.trim();
+
+  if (!employeeId || !company || !contract || !startDateRaw || !role) {
+    return { error: "All fields are required." };
+  }
+
+  const startDate = parseDate(startDateRaw);
+  if (!startDate) {
+    return { error: "Invalid start date." };
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { id: true, endDate: true, contract: true },
+  });
+  if (!employee) {
+    return { error: "Employee not found." };
+  }
+
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: {
+      company,
+      contract,
+      startDate,
+      role,
+      ...(contract === ContractType.PAST_EMPLOYEE && !employee.endDate
+        ? { endDate: startOfUtcDay(new Date()) }
+        : {}),
+      ...(contract !== ContractType.PAST_EMPLOYEE &&
+      employee.contract === ContractType.PAST_EMPLOYEE
+        ? { endDate: null }
+        : {}),
+    },
+  });
+
+  revalidatePath("/hr");
+  return {};
+}
+
+export async function endEmployeeContract(formData: FormData): Promise<{ error?: string }> {
+  await requireHr();
+
+  const employeeId = formData.get("employeeId") as string;
+  const endDateRaw = formData.get("endDate") as string;
+
+  if (!employeeId || !endDateRaw) {
+    return { error: "End date is required." };
+  }
+
+  const endDate = parseDate(endDateRaw);
+  if (!endDate) {
+    return { error: "Invalid end date." };
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { id: true },
+  });
+  if (!employee) {
+    return { error: "Employee not found." };
+  }
+
+  const ended = startOfUtcDay(endDate) <= startOfUtcDay(new Date());
+
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: {
+      endDate,
+      ...(ended ? { contract: ContractType.PAST_EMPLOYEE } : {}),
     },
   });
 
