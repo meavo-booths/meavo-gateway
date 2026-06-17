@@ -16,7 +16,6 @@ import {
   isActiveEmployee,
 } from "@/lib/hr-employee";
 import { Button, Card, Input, Select } from "@/components/ui";
-import { HrEmployeeDetailsCards } from "@/components/hr-employee-details";
 
 type HrDocument = {
   id: string;
@@ -31,16 +30,6 @@ type HrEmployee = {
   startDate: string;
   endDate: string | null;
   role: string;
-  employeeBirthdate: string | null;
-  employeePersonalEmail: string;
-  employeeHomeAddress: string;
-  employeeHomeAddressBg: string;
-  providerCompanyName: string;
-  providerCompanyNameBg: string;
-  providerCompanyAddress: string;
-  providerCompanyAddressBg: string;
-  providerCompanyRegNumber: string;
-  providerCompanyVatNumber: string;
   documents: HrDocument[];
 };
 
@@ -197,24 +186,6 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
                 </ul>
               )}
             </div>
-          )}
-          {user.employee && (
-            <HrEmployeeDetailsCards
-              employee={{
-                id: user.employee.id,
-                contract: user.employee.contract,
-                employeeBirthdate: user.employee.employeeBirthdate,
-                employeePersonalEmail: user.employee.employeePersonalEmail,
-                employeeHomeAddress: user.employee.employeeHomeAddress,
-                employeeHomeAddressBg: user.employee.employeeHomeAddressBg,
-                providerCompanyName: user.employee.providerCompanyName,
-                providerCompanyNameBg: user.employee.providerCompanyNameBg,
-                providerCompanyAddress: user.employee.providerCompanyAddress,
-                providerCompanyAddressBg: user.employee.providerCompanyAddressBg,
-                providerCompanyRegNumber: user.employee.providerCompanyRegNumber,
-                providerCompanyVatNumber: user.employee.providerCompanyVatNumber,
-              }}
-            />
           )}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">

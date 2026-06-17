@@ -1,7 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ContractType } from "@prisma/client";
 import { auth } from "@/lib/auth";
+import {
+  parseEmployeePersonalFields,
+  parseEmployeeProviderFields,
+  parseOptionalEmployeeDate,
+  trimEmployeeField,
+} from "@/lib/employee-details";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 
@@ -9,6 +16,16 @@ async function requireUser() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user;
+}
+
+async function requireOwnEmployee() {
+  const user = await requireUser();
+  const employee = await prisma.employee.findUnique({
+    where: { userId: user.id },
+    select: { id: true, contract: true },
+  });
+  if (!employee) return null;
+  return { user, employee };
 }
 
 export async function updateProfileName(formData: FormData) {
@@ -63,4 +80,44 @@ export async function changePassword(formData: FormData) {
   });
 
   return { success: true };
+}
+
+export async function updateMyEmployeePersonalDetails(
+  formData: FormData
+): Promise<{ error?: string }> {
+  const own = await requireOwnEmployee();
+  if (!own) return { error: "You are not registered as an employee." };
+
+  const birthdateRaw = trimEmployeeField(formData.get("employeeBirthdate"));
+  if (birthdateRaw && !parseOptionalEmployeeDate(formData.get("employeeBirthdate"))) {
+    return { error: "Invalid birthdate." };
+  }
+
+  await prisma.employee.update({
+    where: { id: own.employee.id },
+    data: parseEmployeePersonalFields(formData),
+  });
+
+  revalidatePath("/profile");
+  revalidatePath("/hr/employees");
+  return {};
+}
+
+export async function updateMyEmployeeProviderDetails(
+  formData: FormData
+): Promise<{ error?: string }> {
+  const own = await requireOwnEmployee();
+  if (!own) return { error: "You are not registered as an employee." };
+  if (own.employee.contract !== ContractType.FREELANCE) {
+    return { error: "Company information applies to freelance employees only." };
+  }
+
+  await prisma.employee.update({
+    where: { id: own.employee.id },
+    data: parseEmployeeProviderFields(formData),
+  });
+
+  revalidatePath("/profile");
+  revalidatePath("/hr/employees");
+  return {};
 }

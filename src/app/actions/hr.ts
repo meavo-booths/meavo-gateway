@@ -20,32 +20,6 @@ function parseContract(value: string): ContractType | null {
   return value === "FTE" || value === "FREELANCE" ? value : null;
 }
 
-function parseOptionalDate(value: FormDataEntryValue | null): Date | null {
-  const raw = trimField(value);
-  if (!raw) return null;
-  return parseDate(raw);
-}
-
-function parseEmployeePersonalFields(formData: FormData) {
-  return {
-    employeeBirthdate: parseOptionalDate(formData.get("employeeBirthdate")),
-    employeePersonalEmail: trimField(formData.get("employeePersonalEmail")),
-    employeeHomeAddress: trimField(formData.get("employeeHomeAddress")),
-    employeeHomeAddressBg: trimField(formData.get("employeeHomeAddressBg")),
-  };
-}
-
-function parseEmployeeProviderFields(formData: FormData) {
-  return {
-    providerCompanyName: trimField(formData.get("providerCompanyName")),
-    providerCompanyNameBg: trimField(formData.get("providerCompanyNameBg")),
-    providerCompanyAddress: trimField(formData.get("providerCompanyAddress")),
-    providerCompanyAddressBg: trimField(formData.get("providerCompanyAddressBg")),
-    providerCompanyRegNumber: trimField(formData.get("providerCompanyRegNumber")),
-    providerCompanyVatNumber: trimField(formData.get("providerCompanyVatNumber")),
-  };
-}
-
 function parseDate(value: string): Date | null {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -54,6 +28,7 @@ function parseDate(value: string): Date | null {
 function revalidateHrPages() {
   revalidatePath("/hr/employees");
   revalidatePath("/hr/documentation");
+  revalidatePath("/profile");
 }
 
 export async function hireEmployee(formData: FormData): Promise<{ error?: string }> {
@@ -253,58 +228,4 @@ export async function updateCompanyProfile(formData: FormData): Promise<void> {
   });
 
   revalidateHrPages();
-}
-
-export async function updateEmployeePersonalDetails(
-  formData: FormData
-): Promise<{ error?: string }> {
-  await requireHr();
-
-  const employeeId = formData.get("employeeId") as string;
-  if (!employeeId) return { error: "Employee not found." };
-
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: { id: true },
-  });
-  if (!employee) return { error: "Employee not found." };
-
-  const birthdateRaw = trimField(formData.get("employeeBirthdate"));
-  if (birthdateRaw && !parseDate(birthdateRaw)) {
-    return { error: "Invalid birthdate." };
-  }
-
-  await prisma.employee.update({
-    where: { id: employeeId },
-    data: parseEmployeePersonalFields(formData),
-  });
-
-  revalidateHrPages();
-  return {};
-}
-
-export async function updateEmployeeProviderDetails(
-  formData: FormData
-): Promise<{ error?: string }> {
-  await requireHr();
-
-  const employeeId = formData.get("employeeId") as string;
-  if (!employeeId) return { error: "Employee not found." };
-
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: { id: true, contract: true },
-  });
-  if (!employee) return { error: "Employee not found." };
-  if (employee.contract !== ContractType.FREELANCE) {
-    return { error: "Provider details apply to freelance employees only." };
-  }
-
-  await prisma.employee.update({
-    where: { id: employeeId },
-    data: parseEmployeeProviderFields(formData),
-  });
-
-  revalidateHrPages();
-  return {};
 }
