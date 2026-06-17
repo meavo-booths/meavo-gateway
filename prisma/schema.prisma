@@ -138,15 +138,25 @@ model ToolCardAccess {
 }
 
 model Employee {
-  id        String       @id @default(cuid())
-  userId    String       @unique
-  company   Company
-  contract  ContractType
-  startDate DateTime     @db.Date
-  endDate   DateTime?    @db.Date
-  role      String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id                     String       @id @default(cuid())
+  userId                 String       @unique
+  company                Company
+  contract               ContractType
+  startDate              DateTime     @db.Date
+  endDate                DateTime?    @db.Date
+  role                   String
+  employeeBirthdate      DateTime?    @db.Date
+  employeePersonalEmail  String       @default("")
+  employeeHomeAddress    String       @default("")
+  employeeHomeAddressBg  String       @default("")
+  providerCompanyName    String       @default("")
+  providerCompanyNameBg  String       @default("")
+  providerCompanyAddress String       @default("")
+  providerCompanyAddressBg String     @default("")
+  providerCompanyRegNumber String     @default("")
+  providerCompanyVatNumber String     @default("")
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents EmployeeDocument[]
