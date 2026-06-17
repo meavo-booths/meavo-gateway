@@ -12,6 +12,10 @@ function parseCompany(value: string): Company | null {
   return value === "MEAVO" || value === "OA" ? value : null;
 }
 
+function trimField(value: FormDataEntryValue | null): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function parseContract(value: string): ContractType | null {
   return value === "FTE" || value === "FREELANCE" ? value : null;
 }
@@ -194,5 +198,33 @@ export async function deleteEmployeeDocument(documentId: string): Promise<void> 
   }
 
   await prisma.employeeDocument.delete({ where: { id: documentId } });
+  revalidateHrPages();
+}
+
+export async function updateCompanyProfile(formData: FormData): Promise<void> {
+  await requireHr();
+
+  const company = parseCompany(formData.get("company") as string);
+  if (!company) return;
+
+  const data = {
+    legalName: trimField(formData.get("legalName")),
+    legalNameBg: trimField(formData.get("legalNameBg")),
+    address: trimField(formData.get("address")),
+    addressBg: trimField(formData.get("addressBg")),
+    companyNumber: trimField(formData.get("companyNumber")),
+    vatNumber: trimField(formData.get("vatNumber")),
+    deVatNumber: trimField(formData.get("deVatNumber")),
+    eori: trimField(formData.get("eori")),
+    manager: trimField(formData.get("manager")),
+    managerBg: trimField(formData.get("managerBg")),
+  };
+
+  await prisma.companyProfile.upsert({
+    where: { company },
+    update: data,
+    create: { company, ...data },
+  });
+
   revalidateHrPages();
 }

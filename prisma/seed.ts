@@ -1,4 +1,4 @@
-import { PrismaClient, SystemRole } from "@prisma/client";
+import { PrismaClient, SystemRole, Company } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -75,6 +75,14 @@ async function main() {
       cardId: vacationCard.id,
     },
   });
+
+  for (const company of [Company.MEAVO, Company.OA]) {
+    await prisma.companyProfile.upsert({
+      where: { company },
+      update: {},
+      create: { company },
+    });
+  }
 
   console.log(`Seeded admin (${adminEmail}), Engineering team, and Vacation Tracker card.`);
 }

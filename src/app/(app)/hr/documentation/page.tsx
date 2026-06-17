@@ -1,10 +1,8 @@
-import { Card } from "@/components/ui";
+import { ensureCompanyProfiles } from "@/lib/company-profiles";
+import { HrCompanyProfiles } from "@/components/hr-company-profiles";
 
-export default function HrDocumentationPage() {
-  return (
-    <Card>
-      <h2 className="text-lg font-semibold text-slate-900">Documentation</h2>
-      <p className="mt-2 text-sm text-slate-500">Content coming soon.</p>
-    </Card>
-  );
+export default async function HrDocumentationPage() {
+  const profiles = await ensureCompanyProfiles();
+
+  return <HrCompanyProfiles profiles={profiles} />;
 }
