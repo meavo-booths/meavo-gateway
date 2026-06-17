@@ -15,6 +15,12 @@ async function requireAdmin() {
   return session.user;
 }
 
+function revalidateAdminPages() {
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/teams");
+  revalidatePath("/admin/tools");
+}
+
 export async function createUser(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
@@ -51,7 +57,7 @@ export async function createUser(formData: FormData): Promise<void> {
     });
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function deleteUser(userId: string): Promise<void> {
@@ -72,7 +78,7 @@ export async function deleteUser(userId: string): Promise<void> {
   }
 
   await prisma.user.delete({ where: { id: userId } });
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function resetUserPassword(formData: FormData): Promise<void> {
@@ -88,7 +94,7 @@ export async function resetUserPassword(formData: FormData): Promise<void> {
     data: { passwordHash: await hashPassword(password) },
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function changeUserTeam(formData: FormData): Promise<void> {
@@ -105,7 +111,7 @@ export async function changeUserTeam(formData: FormData): Promise<void> {
     await tx.teamMember.create({ data: { userId, teamId, role } });
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function createTeam(formData: FormData): Promise<void> {
@@ -124,7 +130,7 @@ export async function createTeam(formData: FormData): Promise<void> {
     return;
   }
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function updateTeam(formData: FormData): Promise<void> {
@@ -145,7 +151,7 @@ export async function updateTeam(formData: FormData): Promise<void> {
     return;
   }
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function updateTeamAllowance(
@@ -160,7 +166,7 @@ export async function updateTeamAllowance(
     data: { yearlyAllowance },
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
 }
 
 export async function createToolCard(formData: FormData): Promise<void> {
@@ -175,7 +181,7 @@ export async function createToolCard(formData: FormData): Promise<void> {
     data: { name, description, url },
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
   revalidatePath("/");
 }
 
@@ -193,7 +199,7 @@ export async function updateToolCard(formData: FormData): Promise<void> {
     data: { name, description, url },
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
   revalidatePath("/");
 }
 
@@ -202,7 +208,7 @@ export async function deleteToolCard(cardId: string): Promise<void> {
   if (!cardId) return;
 
   await prisma.toolCard.delete({ where: { id: cardId } });
-  revalidatePath("/admin");
+  revalidateAdminPages();
   revalidatePath("/");
 }
 
@@ -222,7 +228,7 @@ export async function setCardAccess(formData: FormData): Promise<void> {
     }
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
   revalidatePath("/");
 }
 
@@ -269,7 +275,7 @@ export async function setUserAccess(formData: FormData): Promise<void> {
     }
   });
 
-  revalidatePath("/admin");
+  revalidateAdminPages();
   revalidatePath("/");
   revalidatePath("/hr");
 }
