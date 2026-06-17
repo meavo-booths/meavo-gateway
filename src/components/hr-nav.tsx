@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/hr/employees", label: "Employees" },
   { href: "/hr/documentation", label: "Documentation" },
+  { href: "/hr/database", label: "Database" },
 ];
 
 export function HrNav() {

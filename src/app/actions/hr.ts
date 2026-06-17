@@ -28,6 +28,7 @@ function parseDate(value: string): Date | null {
 function revalidateHrPages() {
   revalidatePath("/hr/employees");
   revalidatePath("/hr/documentation");
+  revalidatePath("/hr/database");
   revalidatePath("/profile");
 }
 
