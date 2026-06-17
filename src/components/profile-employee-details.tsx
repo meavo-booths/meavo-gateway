@@ -59,7 +59,7 @@ function PersonalDetailsCard({ employee }: { employee: EmployeeDetailsData }) {
             rows={3}
           />
           <Textarea
-            label="Home address (Адрес)"
+            label="Адрес"
             name="employeeHomeAddressBg"
             defaultValue={employee.employeeHomeAddressBg}
             rows={3}
@@ -108,7 +108,7 @@ function ProviderDetailsCard({ employee }: { employee: EmployeeDetailsData }) {
             defaultValue={employee.providerCompanyName}
           />
           <Input
-            label="Company name (Име на фирма)"
+            label="Име на фирма"
             name="providerCompanyNameBg"
             defaultValue={employee.providerCompanyNameBg}
           />
@@ -121,7 +121,7 @@ function ProviderDetailsCard({ employee }: { employee: EmployeeDetailsData }) {
             rows={3}
           />
           <Textarea
-            label="Company address (Адрес на фирма)"
+            label="Адрес на фирма"
             name="providerCompanyAddressBg"
             defaultValue={employee.providerCompanyAddressBg}
             rows={3}
