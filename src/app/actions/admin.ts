@@ -277,5 +277,6 @@ export async function setUserAccess(formData: FormData): Promise<void> {
 
   revalidateAdminPages();
   revalidatePath("/");
-  revalidatePath("/hr");
+  revalidatePath("/hr/employees");
+  revalidatePath("/hr/documentation");
 }

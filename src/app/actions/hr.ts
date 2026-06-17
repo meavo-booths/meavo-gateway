@@ -21,6 +21,11 @@ function parseDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function revalidateHrPages() {
+  revalidatePath("/hr/employees");
+  revalidatePath("/hr/documentation");
+}
+
 export async function hireEmployee(formData: FormData): Promise<{ error?: string }> {
   await requireHr();
 
@@ -54,7 +59,7 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
     },
   });
 
-  revalidatePath("/hr");
+  revalidateHrPages();
   return {};
 }
 
@@ -89,7 +94,7 @@ export async function updateEmployee(formData: FormData): Promise<{ error?: stri
     data: { company, contract, startDate, role },
   });
 
-  revalidatePath("/hr");
+  revalidateHrPages();
   return {};
 }
 
@@ -121,7 +126,7 @@ export async function endEmployeeContract(formData: FormData): Promise<{ error?:
     data: { endDate },
   });
 
-  revalidatePath("/hr");
+  revalidateHrPages();
   return {};
 }
 
@@ -168,7 +173,7 @@ export async function uploadEmployeeDocument(
     },
   });
 
-  revalidatePath("/hr");
+  revalidateHrPages();
   return {};
 }
 
@@ -189,5 +194,5 @@ export async function deleteEmployeeDocument(documentId: string): Promise<void> 
   }
 
   await prisma.employeeDocument.delete({ where: { id: documentId } });
-  revalidatePath("/hr");
+  revalidateHrPages();
 }

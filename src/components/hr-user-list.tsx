@@ -545,7 +545,7 @@ export function HrFilters({
           }
 
           startTransition(() => {
-            router.push(params.size ? `/hr?${params.toString()}` : "/hr");
+            router.push(params.size ? `/hr/employees?${params.toString()}` : "/hr/employees");
           });
         }}
       >
