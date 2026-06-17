@@ -11,6 +11,7 @@ export const DEFAULT_HR_FILTERS = {
   statuses: ["active"] as HrStatusFilter[],
   companies: [] as HrCompanyFilter[],
   contracts: [] as HrContractFilter[],
+  teams: [] as string[],
 };
 
 const USER_TYPE_VALUES: HrUserTypeFilter[] = ["user", "employee"];
@@ -18,7 +19,7 @@ const STATUS_VALUES: HrStatusFilter[] = ["active", "past"];
 const COMPANY_VALUES: HrCompanyFilter[] = [Company.MEAVO, Company.OA];
 const CONTRACT_VALUES: HrContractFilter[] = [ContractType.FTE, ContractType.FREELANCE];
 
-const FILTER_PARAM_KEYS = ["userType", "status", "company", "contract"] as const;
+const FILTER_PARAM_KEYS = ["userType", "status", "company", "contract", "team"] as const;
 
 function parseMultiParam<T extends string>(
   value: string | string[] | undefined,
@@ -95,11 +96,13 @@ export function buildHrUserWhere({
   statuses,
   companies,
   contracts,
+  teams,
 }: {
   userTypes: HrUserTypeFilter[];
   statuses: HrStatusFilter[];
   companies: HrCompanyFilter[];
   contracts: HrContractFilter[];
+  teams: string[];
 }): Prisma.UserWhereInput {
   const fieldFilters = employeeFieldFilters(companies, contracts);
   const hasFieldFilters = Object.keys(fieldFilters).length > 0;
@@ -113,30 +116,44 @@ export function buildHrUserWhere({
   const showUsers = userTypes.length === 0 || userTypes.includes("user");
   const showEmployees = userTypes.length === 0 || userTypes.includes("employee");
 
+  let base: Prisma.UserWhereInput;
+
   if (showUsers && showEmployees) {
-    if (!hasEmployeeWhere) return {};
-    return {
-      OR: [{ employee: { is: null } }, { employee: { is: employeeWhere } }],
-    };
+    if (!hasEmployeeWhere) {
+      base = {};
+    } else {
+      base = {
+        OR: [{ employee: { is: null } }, { employee: { is: employeeWhere } }],
+      };
+    }
+  } else if (showUsers) {
+    base = { employee: { is: null } };
+  } else if (!hasEmployeeWhere) {
+    base = { employee: { isNot: null } };
+  } else {
+    base = { employee: { is: employeeWhere } };
   }
 
-  if (showUsers) {
-    return { employee: { is: null } };
-  }
+  if (teams.length === 0) return base;
 
-  if (!hasEmployeeWhere) {
-    return { employee: { isNot: null } };
-  }
+  const teamFilter: Prisma.UserWhereInput = {
+    teamMembers: { some: { teamId: { in: teams } } },
+  };
 
-  return { employee: { is: employeeWhere } };
+  if (Object.keys(base).length === 0) return teamFilter;
+  return { AND: [base, teamFilter] };
 }
 
-export function parseHrFilters(searchParams: {
-  userType?: string | string[];
-  status?: string | string[];
-  company?: string | string[];
-  contract?: string | string[];
-}) {
+export function parseHrFilters(
+  searchParams: {
+    userType?: string | string[];
+    status?: string | string[];
+    company?: string | string[];
+    contract?: string | string[];
+    team?: string | string[];
+  },
+  validTeamIds: readonly string[] = []
+) {
   if (!hasFilterParams(searchParams)) {
     return { ...DEFAULT_HR_FILTERS };
   }
@@ -146,5 +163,6 @@ export function parseHrFilters(searchParams: {
     statuses: parseMultiParam(searchParams.status, STATUS_VALUES),
     companies: parseMultiParam(searchParams.company, COMPANY_VALUES),
     contracts: parseMultiParam(searchParams.contract, CONTRACT_VALUES),
+    teams: parseMultiParam(searchParams.team, validTeamIds),
   };
 }

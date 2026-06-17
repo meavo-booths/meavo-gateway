@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   deleteEmployeeDocument,
   endEmployeeContract,
@@ -429,16 +429,103 @@ function FilterCheckboxGroup({
   );
 }
 
+function FilterCheckboxDropdown({
+  legend,
+  name,
+  options,
+  selected,
+}: {
+  legend: string;
+  name: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLFieldSetElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const selectedLabels = options
+    .filter((option) => selected.includes(option.value))
+    .map((option) => option.label);
+  const summary =
+    selected.length === 0
+      ? "All teams"
+      : selected.length === 1
+        ? selectedLabels[0]
+        : `${selected.length} teams`;
+
+  return (
+    <fieldset ref={containerRef} className="relative">
+      <legend className="text-sm font-medium text-slate-700">{legend}</legend>
+      {options.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-500">No teams yet</p>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+          >
+            <span className="truncate">{summary}</span>
+            <span className="ml-2 shrink-0 text-slate-400" aria-hidden>
+              {open ? "▴" : "▾"}
+            </span>
+          </button>
+          <div
+            className={
+              open
+                ? "absolute z-20 mt-1 max-h-60 w-full min-w-[12rem] overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
+                : "h-0 overflow-hidden"
+            }
+          >
+            {options.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  name={name}
+                  value={option.value}
+                  defaultChecked={selected.includes(option.value)}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </fieldset>
+  );
+}
+
 export function HrFilters({
   userTypes,
   statuses,
   companies,
   contracts,
+  teams,
+  teamOptions,
 }: {
   userTypes: string[];
   statuses: string[];
   companies: string[];
   contracts: string[];
+  teams: string[];
+  teamOptions: { value: string; label: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -446,13 +533,13 @@ export function HrFilters({
   return (
     <Card>
       <form
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-start"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-start"
         onSubmit={(e) => {
           e.preventDefault();
           const formData = new FormData(e.currentTarget);
           const params = new URLSearchParams();
 
-          for (const key of ["userType", "status", "company", "contract"]) {
+          for (const key of ["userType", "status", "company", "contract", "team"]) {
             const values = formData.getAll(key).map((value) => String(value));
             if (values.length > 0) params.set(key, values.join(","));
           }
@@ -492,7 +579,13 @@ export function HrFilters({
           selected={contracts}
           options={CONTRACT_OPTIONS}
         />
-        <div className="flex items-end sm:col-span-2 xl:col-span-1">
+        <FilterCheckboxDropdown
+          legend="Team"
+          name="team"
+          selected={teams}
+          options={teamOptions}
+        />
+        <div className="flex items-end sm:col-span-2 lg:col-span-3 xl:col-span-1">
           <Button type="submit" disabled={pending} className="w-full sm:w-auto">
             {pending ? "Filtering…" : "Apply filters"}
           </Button>

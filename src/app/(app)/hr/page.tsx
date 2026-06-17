@@ -14,6 +14,7 @@ export default async function HrPage({
     status?: string | string[];
     company?: string | string[];
     contract?: string | string[];
+    team?: string | string[];
   }>;
 }) {
   const session = await auth();
@@ -21,7 +22,13 @@ export default async function HrPage({
   if (!(await hasHrAccess(session.user.id))) redirect("/");
 
   const params = await searchParams;
-  const filters = parseHrFilters(params);
+  const teams = await prisma.team.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const teamOptions = teams.map((team) => ({ value: team.id, label: team.name }));
+  const validTeamIds = teams.map((team) => team.id);
+  const filters = parseHrFilters(params, validTeamIds);
   const where = buildHrUserWhere(filters);
 
   const users = await prisma.user.findMany({
@@ -86,6 +93,8 @@ export default async function HrPage({
         statuses={filters.statuses}
         companies={filters.companies}
         contracts={filters.contracts}
+        teams={filters.teams}
+        teamOptions={teamOptions}
       />
       <HrUserList users={rows} />
     </div>
