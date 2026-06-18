@@ -1,3 +1,5 @@
+import { TEMPLATE_PLACEHOLDER_OPTIONS } from "@/lib/template-placeholders";
+
 export type HrDatabaseField = {
   name: string;
   label: string;
@@ -12,49 +14,60 @@ export type HrDatabaseSection = {
   fields: HrDatabaseField[];
 };
 
+const COMPANY_PROFILE_FIELDS: HrDatabaseField[] = [
+  { name: "company.legalName", label: "Legal name", type: "String", notes: "DB: legalName" },
+  { name: "company.legalNameBg", label: "Име на фирмата", type: "String", notes: "DB: legalNameBg" },
+  { name: "company.address", label: "Address", type: "String", notes: "DB: address" },
+  { name: "company.addressBg", label: "Адрес", type: "String", notes: "DB: addressBg" },
+  { name: "company.companyNumber", label: "Company number", type: "String" },
+  { name: "company.vatNumber", label: "VAT number", type: "String" },
+  { name: "company.deVatNumber", label: "DE VAT number", type: "String" },
+  { name: "company.eori", label: "EORI", type: "String" },
+  { name: "company.manager", label: "Manager", type: "String" },
+  { name: "company.managerBg", label: "МОЛ", type: "String", notes: "DB: managerBg" },
+];
+
+const EMPLOYEE_FIELDS: HrDatabaseField[] = TEMPLATE_PLACEHOLDER_OPTIONS.filter(
+  (option) => option.group === "employee"
+).map((option) => ({
+  name: option.path,
+  label: option.label,
+  type: "String",
+}));
+
+const USER_FIELDS: HrDatabaseField[] = TEMPLATE_PLACEHOLDER_OPTIONS.filter(
+  (option) => option.group === "user"
+).map((option) => ({
+  name: option.path,
+  label: option.label,
+  type: "String",
+}));
+
 export const HR_DATABASE_SECTIONS: HrDatabaseSection[] = [
   {
     title: "MEAVO & OA company profiles",
-    description: "One row per company in CompanyProfile (company = MEAVO or OA). Edited on Documentation.",
+    description:
+      "One row per company in CompanyProfile. Use {{company.fieldName}} in templates. Edited on Documentation.",
     table: "CompanyProfile",
-    fields: [
-      { name: "company", label: "—", type: "Company", notes: "Primary key (MEAVO / OA)" },
-      { name: "legalName", label: "Legal name", type: "String" },
-      { name: "legalNameBg", label: "Име на фирмата", type: "String" },
-      { name: "address", label: "Address", type: "String", notes: "Free text" },
-      { name: "addressBg", label: "Адрес", type: "String" },
-      { name: "companyNumber", label: "Company number", type: "String" },
-      { name: "vatNumber", label: "VAT number", type: "String" },
-      { name: "deVatNumber", label: "DE VAT number", type: "String" },
-      { name: "eori", label: "EORI", type: "String" },
-      { name: "manager", label: "Manager", type: "String" },
-      { name: "managerBg", label: "МОЛ", type: "String" },
-      { name: "createdAt", label: "—", type: "DateTime", notes: "Auto" },
-      { name: "updatedAt", label: "—", type: "DateTime", notes: "Auto" },
-    ],
+    fields: COMPANY_PROFILE_FIELDS,
   },
   {
-    title: "Employee personal details",
-    description: "On Employee, linked to User via userId. Edited by the employee on Profile.",
+    title: "Employee fields",
+    description: "On Employee, linked to User. Use {{employee.fieldName}} in templates. Edited on Profile.",
     table: "Employee",
-    fields: [
-      { name: "employeeBirthdate", label: "Birthdate", type: "Date?", notes: "Nullable" },
-      { name: "employeePersonalEmail", label: "Personal email", type: "String" },
-      { name: "employeeHomeAddress", label: "Home address", type: "String" },
-      { name: "employeeHomeAddressBg", label: "Адрес", type: "String" },
-    ],
+    fields: EMPLOYEE_FIELDS,
   },
   {
-    title: "Employee provider details",
-    description: "Freelance employees only (contract = FREELANCE). Edited by the employee on Profile.",
-    table: "Employee",
-    fields: [
-      { name: "providerCompanyName", label: "Company name", type: "String" },
-      { name: "providerCompanyNameBg", label: "Име на фирма", type: "String" },
-      { name: "providerCompanyAddress", label: "Company address", type: "String" },
-      { name: "providerCompanyAddressBg", label: "Адрес на фирма", type: "String" },
-      { name: "providerCompanyRegNumber", label: "Company Reg Number", type: "String" },
-      { name: "providerCompanyVatNumber", label: "Company VAT Number", type: "String" },
-    ],
+    title: "User fields",
+    description: "From User. Use {{user.fieldName}} in templates.",
+    table: "User",
+    fields: USER_FIELDS,
+  },
+  {
+    title: "Custom placeholders",
+    description:
+      "No database backing. Type any {{custom.name}} in a template — it appears at generate time for free-text entry.",
+    table: "—",
+    fields: [{ name: "custom.*", label: "Custom field", type: "String", notes: "Example: {{custom.salary}}" }],
   },
 ];

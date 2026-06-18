@@ -69,6 +69,10 @@ model User {
   vacationRequests   VacationRequest[] @relation("Requester")
   reviewedRequests   VacationRequest[] @relation("Reviewer")
   allowances         UserAllowance[]
+  documentTemplatesCreated     DocumentTemplate[]        @relation("DocumentTemplateCreator")
+  documentTemplateVersionsCreated DocumentTemplateVersion[] @relation("DocumentTemplateVersionCreator")
+  generatedDocuments           GeneratedDocument[]       @relation("GeneratedDocumentCreator")
+  generatedDocumentsAsSubject  GeneratedDocument[]       @relation("GeneratedDocumentSubject")
 }
 
 model Account {
@@ -174,6 +178,57 @@ model EmployeeDocument {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
+}
+
+model DocumentTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  createdBy User                      @relation("DocumentTemplateCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  versions  DocumentTemplateVersion[]
+}
+
+model DocumentTemplateVersion {
+  id                 String   @id @default(cuid())
+  templateId         String
+  versionNumber      Int
+  body               String   @db.Text
+  customPlaceholders String   @default("[]")
+  isCurrent          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  createdById        String
+
+  template             DocumentTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdBy            User                @relation("DocumentTemplateVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  generatedDocuments   GeneratedDocument[]
+
+  @@unique([templateId, versionNumber])
+  @@index([templateId, isCurrent])
+}
+
+model GeneratedDocument {
+  id                String   @id @default(cuid())
+  templateVersionId String
+  generatedById     String
+  subjectUserId     String?
+  company           Company?
+  filledValues      String   @db.Text
+  warnings          String   @default("[]")
+  fileName          String
+  storageKey        String
+  createdAt         DateTime @default(now())
+
+  templateVersion DocumentTemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  generatedBy     User                    @relation("GeneratedDocumentCreator", fields: [generatedById], references: [id], onDelete: Restrict)
+  subjectUser     User?                   @relation("GeneratedDocumentSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+
+  @@index([templateVersionId])
+  @@index([subjectUserId])
 }
 
 // Vacation Tracker–specific (shared DB — gateway does not use these directly)
