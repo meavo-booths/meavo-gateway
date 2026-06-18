@@ -47,6 +47,12 @@ export default async function HrDocumentationPage() {
           body: currentVersion.body,
           createdAt: currentVersion.createdAt.toISOString(),
         },
+        versions: template.versions.map((version) => ({
+          id: version.id,
+          versionNumber: version.versionNumber,
+          createdAt: version.createdAt.toISOString(),
+          isCurrent: version.isCurrent,
+        })),
       };
     })
     .filter((row): row is DocumentTemplateListItem => row !== null);

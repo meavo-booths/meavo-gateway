@@ -22,6 +22,12 @@ export type DocumentTemplateListItem = {
     body: string;
     createdAt: string;
   };
+  versions: {
+    id: string;
+    versionNumber: number;
+    createdAt: string;
+    isCurrent: boolean;
+  }[];
 };
 
 type UserOption = { id: string; label: string };
@@ -139,16 +145,19 @@ function CreateTemplateForm({ onCreated }: { onCreated: () => void }) {
 }
 
 function GenerateDocumentModal({
-  template,
+  templateName,
+  templateVersion,
   users,
   onClose,
 }: {
-  template: DocumentTemplateListItem;
+  templateName: string;
+  templateVersion: { id: string; versionNumber: number };
   users: UserOption[];
   onClose: () => void;
 }) {
   const [subjectUserId, setSubjectUserId] = useState("");
   const [company, setCompany] = useState("");
+  const [attachToEmployee, setAttachToEmployee] = useState(true);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [placeholders, setPlaceholders] = useState<string[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -156,6 +165,7 @@ function GenerateDocumentModal({
   const [preview, setPreview] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [attachedMessage, setAttachedMessage] = useState<string | null>(null);
   const [draftPending, startDraftTransition] = useTransition();
   const [generatePending, startGenerateTransition] = useTransition();
 
@@ -163,7 +173,7 @@ function GenerateDocumentModal({
     startDraftTransition(async () => {
       setError(null);
       const result = await getTemplateGenerationDraft({
-        templateVersionId: template.currentVersion.id,
+        templateVersionId: templateVersion.id,
         subjectUserId: subjectUserId || null,
         company: company === "MEAVO" || company === "OA" ? company : null,
         overridesJson: JSON.stringify(nextOverrides),
@@ -187,7 +197,7 @@ function GenerateDocumentModal({
       >
         <h3 className="text-lg font-semibold text-slate-900">Generate document</h3>
         <p className="mt-1 text-sm text-slate-500">
-          {template.name} · version {template.currentVersion.versionNumber}
+          {templateName} · version {templateVersion.versionNumber}
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -219,6 +229,17 @@ function GenerateDocumentModal({
             </select>
           </label>
         </div>
+
+        <label className="mt-4 flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={attachToEmployee}
+            onChange={(e) => setAttachToEmployee(e.target.checked)}
+            disabled={!subjectUserId}
+            className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
+          />
+          Attach PDF to employee profile (when the selected user is an employee)
+        </label>
 
         <div className="mt-4">
           <Button type="button" variant="secondary" disabled={draftPending} onClick={() => refreshDraft()}>
@@ -282,6 +303,7 @@ function GenerateDocumentModal({
             <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
               Open PDF
             </a>
+            {attachedMessage && <span className="block mt-1">{attachedMessage}</span>}
           </p>
         )}
 
@@ -294,11 +316,13 @@ function GenerateDocumentModal({
             disabled={generatePending || !preview}
             onClick={() => {
               setError(null);
+              setAttachedMessage(null);
               const formData = new FormData();
-              formData.set("templateVersionId", template.currentVersion.id);
+              formData.set("templateVersionId", templateVersion.id);
               if (subjectUserId) formData.set("subjectUserId", subjectUserId);
               if (company) formData.set("company", company);
               formData.set("overridesJson", JSON.stringify(overrides));
+              if (attachToEmployee) formData.set("attachToEmployee", "on");
               startGenerateTransition(async () => {
                 const result = await generateDocumentPdf(formData);
                 if (result.error) {
@@ -306,6 +330,13 @@ function GenerateDocumentModal({
                 } else if (result.documentId) {
                   setDownloadUrl(`/api/hr/generated-documents/${result.documentId}`);
                   if (result.warnings) setWarnings(result.warnings);
+                  if (result.attachedToEmployee) {
+                    setAttachedMessage("Also attached to the employee profile on HR → Employees.");
+                  } else if (attachToEmployee && subjectUserId) {
+                    setAttachedMessage(
+                      "Not attached — selected user is not an employee, or attachment was skipped."
+                    );
+                  }
                 }
               });
             }}
@@ -407,6 +438,64 @@ function EditTemplateModal({
   );
 }
 
+function VersionHistoryModal({
+  template,
+  onClose,
+  onGenerate,
+}: {
+  template: DocumentTemplateListItem;
+  onClose: () => void;
+  onGenerate: (version: { id: string; versionNumber: number }) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-slate-900">Version history</h3>
+        <p className="mt-1 text-sm text-slate-500">{template.name}</p>
+
+        <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {template.versions.map((version) => (
+            <li key={version.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-slate-900">
+                  Version {version.versionNumber}
+                  {version.isCurrent && (
+                    <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                      Current
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {new Date(version.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  onGenerate({ id: version.id, versionNumber: version.versionNumber });
+                  onClose();
+                }}
+              >
+                Generate
+              </Button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-6 flex justify-end">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TemplateCard({
   template,
   users,
@@ -417,7 +506,17 @@ function TemplateCard({
   onChanged: () => void;
 }) {
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateVersion, setGenerateVersion] = useState<{
+    id: string;
+    versionNumber: number;
+  } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+
+  const activeVersion = generateVersion ?? {
+    id: template.currentVersion.id,
+    versionNumber: template.currentVersion.versionNumber,
+  };
 
   return (
     <>
@@ -434,18 +533,48 @@ function TemplateCard({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {template.versionCount > 1 && (
+              <Button type="button" variant="ghost" onClick={() => setHistoryOpen(true)}>
+                Version history
+              </Button>
+            )}
             <Button type="button" variant="secondary" onClick={() => setEditOpen(true)}>
               Edit
             </Button>
-            <Button type="button" onClick={() => setGenerateOpen(true)}>
+            <Button
+              type="button"
+              onClick={() => {
+                setGenerateVersion(null);
+                setGenerateOpen(true);
+              }}
+            >
               Generate document
             </Button>
           </div>
         </div>
       </Card>
 
+      {historyOpen && (
+        <VersionHistoryModal
+          template={template}
+          onClose={() => setHistoryOpen(false)}
+          onGenerate={(version) => {
+            setGenerateVersion(version);
+            setGenerateOpen(true);
+          }}
+        />
+      )}
+
       {generateOpen && (
-        <GenerateDocumentModal template={template} users={users} onClose={() => setGenerateOpen(false)} />
+        <GenerateDocumentModal
+          templateName={template.name}
+          templateVersion={activeVersion}
+          users={users}
+          onClose={() => {
+            setGenerateOpen(false);
+            setGenerateVersion(null);
+          }}
+        />
       )}
       {editOpen && (
         <EditTemplateModal template={template} onClose={() => setEditOpen(false)} onSaved={onChanged} />
@@ -474,7 +603,7 @@ export function HrDocumentTemplates({
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Available templates</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Generate PDF documents from the current version of each template.
+          Generate PDF documents from any version of each template.
         </p>
         {templates.length === 0 ? (
           <Card className="mt-4">

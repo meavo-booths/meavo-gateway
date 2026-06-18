@@ -21,6 +21,7 @@ import { renderTemplatePdf } from "@/lib/template-pdf";
 function revalidateDocumentationPages() {
   revalidatePath("/hr/documentation");
   revalidatePath("/hr/database");
+  revalidatePath("/hr/employees");
 }
 
 function parseCompany(value: string | null): Company | null {
@@ -197,6 +198,7 @@ export async function generateDocumentPdf(formData: FormData): Promise<{
   documentId?: string;
   fileName?: string;
   warnings?: MergeWarning[];
+  attachedToEmployee?: boolean;
 }> {
   const hrUser = await requireHr();
 
@@ -204,6 +206,7 @@ export async function generateDocumentPdf(formData: FormData): Promise<{
   const subjectUserId = (formData.get("subjectUserId") as string) || null;
   const company = parseCompany(formData.get("company") as string);
   const overridesJson = formData.get("overridesJson") as string;
+  const attachToEmployee = formData.get("attachToEmployee") === "on";
 
   if (!templateVersionId) {
     return { error: "Template version is required." };
@@ -264,10 +267,40 @@ export async function generateDocumentPdf(formData: FormData): Promise<{
     },
   });
 
+  let attachedToEmployee = false;
+  if (attachToEmployee && subjectUserId) {
+    const employee = await prisma.employee.findUnique({
+      where: { userId: subjectUserId },
+      select: { id: true },
+    });
+    if (employee) {
+      const employeeBlob = await put(
+        `hr/${employee.id}/${Date.now()}-${fileName}`,
+        Buffer.from(pdfBytes),
+        {
+          access: "private",
+          addRandomSuffix: true,
+          contentType: "application/pdf",
+        }
+      );
+      await prisma.employeeDocument.create({
+        data: {
+          employeeId: employee.id,
+          fileName,
+          mimeType: "application/pdf",
+          storageKey: employeeBlob.pathname,
+          uploadedBy: hrUser.id,
+        },
+      });
+      attachedToEmployee = true;
+    }
+  }
+
   revalidateDocumentationPages();
   return {
     documentId: generated.id,
     fileName,
     warnings: draft.warnings,
+    attachedToEmployee,
   };
 }
