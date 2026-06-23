@@ -45,6 +45,7 @@ export default async function HomePage() {
               name={card.name}
               description={card.description}
               url={card.url}
+              iconKey={card.iconKey}
             />
           ))}
         </div>

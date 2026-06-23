@@ -5,6 +5,7 @@ import { SystemRole, TeamRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { parseIconKey } from "@/lib/tool-card-icons";
 import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
 
@@ -174,11 +175,12 @@ export async function createToolCard(formData: FormData): Promise<void> {
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
   const url = (formData.get("url") as string)?.trim();
+  const iconKey = parseIconKey(formData);
 
   if (!name || !description || !url) return;
 
   await prisma.toolCard.create({
-    data: { name, description, url },
+    data: { name, description, url, iconKey },
   });
 
   revalidateAdminPages();
@@ -191,12 +193,13 @@ export async function updateToolCard(formData: FormData): Promise<void> {
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
   const url = (formData.get("url") as string)?.trim();
+  const iconKey = parseIconKey(formData);
 
   if (!cardId || !name || !description || !url) return;
 
   await prisma.toolCard.update({
     where: { id: cardId },
-    data: { name, description, url },
+    data: { name, description, url, iconKey },
   });
 
   revalidateAdminPages();

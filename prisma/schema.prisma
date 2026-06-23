@@ -122,6 +122,7 @@ model ToolCard {
   name        String
   description String
   url         String
+  iconKey     String?
   sortOrder   Int              @default(0)
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
@@ -265,4 +266,127 @@ model VacationRequest {
   @@index([userId])
   @@index([status])
   @@index([startDate, endDate])
+}
+
+// Assembly tool–specific (shared DB — gateway does not use these directly)
+enum SubmissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+}
+
+enum QuestionType {
+  CHECKBOX
+  TEXT
+}
+
+model AssemblyPartner {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  slug       String   @unique
+  codeHash   String?
+  isActive   Boolean  @default(true)
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  assemblies  Assembly[]
+  submissions QuestionnaireSubmission[]
+}
+
+model Assembly {
+  id                  String    @id @default(cuid())
+  dealId              String    @unique
+  assemblyDate        DateTime? @db.Date
+  market              String    @default("")
+  clientName          String    @default("")
+  channelType         String    @default("")
+  deliveryPartnerName String    @default("")
+  installPartnerName  String    @default("")
+  installPartnerId    String?
+  lastImportedAt      DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  installPartner AssemblyPartner?          @relation(fields: [installPartnerId], references: [id], onDelete: SetNull)
+  submissions    QuestionnaireSubmission[]
+
+  @@index([installPartnerId])
+  @@index([assemblyDate])
+}
+
+model Questionnaire {
+  id          String   @id @default(cuid())
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions Question[]
+}
+
+model Question {
+  id              String       @id @default(cuid())
+  questionnaireId String
+  text            String
+  type            QuestionType @default(CHECKBOX)
+  sortOrder       Int
+  required        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answers       QuestionAnswer[]
+
+  @@index([questionnaireId, sortOrder])
+}
+
+model QuestionnaireSubmission {
+  id          String           @id @default(cuid())
+  assemblyId  String
+  partnerId   String
+  status      SubmissionStatus @default(NOT_STARTED)
+  submittedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  assembly Assembly          @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  partner  AssemblyPartner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  answers  QuestionAnswer[]
+  photos   SubmissionPhoto[]
+
+  @@unique([assemblyId, partnerId])
+  @@index([partnerId])
+}
+
+model QuestionAnswer {
+  id           String  @id @default(cuid())
+  submissionId String
+  questionId   String
+  checked      Boolean @default(false)
+  textAnswer   String  @default("")
+
+  submission QuestionnaireSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   Question                @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, questionId])
+}
+
+model SubmissionPhoto {
+  id           String   @id @default(cuid())
+  submissionId String
+  storageKey   String
+  fileName     String
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  submission QuestionnaireSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+}
+
+model SheetImportState {
+  id           String    @id @default("default")
+  lastRunAt    DateTime?
+  rowCount     Int       @default(0)
+  errorMessage String?
 }

@@ -76,6 +76,36 @@ async function main() {
     },
   });
 
+  const assemblyCard = await prisma.toolCard.upsert({
+    where: { id: "seed-assembly-tool" },
+    update: {
+      name: "Assembly",
+      description: "Install questionnaires for assembly partners.",
+      url: "https://assembly.meavo.app",
+      sortOrder: 1,
+      isActive: true,
+    },
+    create: {
+      id: "seed-assembly-tool",
+      name: "Assembly",
+      description: "Install questionnaires for assembly partners.",
+      url: "https://assembly.meavo.app",
+      sortOrder: 1,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: assemblyCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: assemblyCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -84,7 +114,7 @@ async function main() {
     });
   }
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, and Vacation Tracker card.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker and Assembly cards.`);
 }
 
 main()

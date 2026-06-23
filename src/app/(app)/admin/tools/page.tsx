@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createToolCard } from "@/app/actions/admin";
 import { AdminToolCards } from "@/components/admin-tool-cards";
+import { ToolCardIconPicker } from "@/components/tool-card-icon-picker";
 import { Button, Card, Input, Textarea } from "@/components/ui";
 
 export default async function AdminToolsPage() {
@@ -25,6 +26,7 @@ export default async function AdminToolsPage() {
     name: card.name,
     description: card.description,
     url: card.url,
+    iconKey: card.iconKey,
     accessUserIds: card.access.map((a) => a.userId),
   }));
 
@@ -44,6 +46,7 @@ export default async function AdminToolsPage() {
               placeholder="What this tool is for"
             />
           </div>
+          <ToolCardIconPicker />
           <div className="sm:col-span-2">
             <Button type="submit">Create card</Button>
           </div>

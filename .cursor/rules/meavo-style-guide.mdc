@@ -41,4 +41,8 @@ Defined in `tailwind.config.ts` as `bg-brand-600` / `hover:bg-brand-700`.
 - Focus rings: `brand-100` / `brand-500` on inputs.
 - Logo: `/meavo-logo.png` — do not substitute text-only branding on login or nav.
 
+## Icon library (tool cards)
+
+Official SVG icons: [Google Drive folder](https://drive.google.com/drive/folders/16Oo09-3I3nsttE92-uOdl5aG64Sn4qpm). Bundled copies live in `public/icons/tool-cards/`; manifest in `src/lib/tool-card-icons.ts`. Icons use green circle `#0C8F61` with white symbol.
+
 When adding new UI, align with the guide’s warm, minimal, professional tone. Prefer the palette above over ad-hoc colors.

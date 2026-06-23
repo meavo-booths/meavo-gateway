@@ -6,6 +6,8 @@ import {
   setCardAccess,
   updateToolCard,
 } from "@/app/actions/admin";
+import { ToolCardIcon } from "@/components/tool-card-icon";
+import { ToolCardIconPicker } from "@/components/tool-card-icon-picker";
 import { Button, Input, Textarea } from "@/components/ui";
 
 type ToolCardData = {
@@ -13,6 +15,7 @@ type ToolCardData = {
   name: string;
   description: string;
   url: string;
+  iconKey: string | null;
   accessUserIds: string[];
 };
 
@@ -26,11 +29,13 @@ function Modal({
   open,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  wide?: boolean;
 }) {
   if (!open) return null;
 
@@ -40,7 +45,9 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
+        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${
+          wide ? "max-w-xl" : "max-w-md"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
@@ -63,13 +70,16 @@ function ToolCardRow({
   return (
     <>
       <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="font-medium text-slate-900">{card.name}</p>
-          <p className="mt-1 text-sm text-slate-600">{card.description}</p>
-          <p className="mt-1 truncate text-xs text-slate-500">{card.url}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {card.accessUserIds.length} user{card.accessUserIds.length !== 1 ? "s" : ""} with access
-          </p>
+        <div className="flex min-w-0 gap-3">
+          {card.iconKey && <ToolCardIcon iconKey={card.iconKey} size={32} className="mt-0.5" />}
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900">{card.name}</p>
+            <p className="mt-1 text-sm text-slate-600">{card.description}</p>
+            <p className="mt-1 truncate text-xs text-slate-500">{card.url}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {card.accessUserIds.length} user{card.accessUserIds.length !== 1 ? "s" : ""} with access
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={() => setAccessOpen(true)}>
@@ -92,12 +102,13 @@ function ToolCardRow({
         </div>
       </li>
 
-      <Modal title={`Edit — ${card.name}`} open={editOpen} onClose={() => setEditOpen(false)}>
+      <Modal title={`Edit — ${card.name}`} open={editOpen} onClose={() => setEditOpen(false)} wide>
         <form action={updateToolCard} className="space-y-4" onSubmit={() => setEditOpen(false)}>
           <input type="hidden" name="cardId" value={card.id} />
           <Input label="Name" name="name" defaultValue={card.name} required />
           <Textarea label="Description" name="description" defaultValue={card.description} required />
           <Input label="Link URL" name="url" type="url" defaultValue={card.url} required />
+          <ToolCardIconPicker defaultValue={card.iconKey} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
               Cancel

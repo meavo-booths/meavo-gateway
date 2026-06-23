@@ -83,7 +83,7 @@ Grant HR access when creating a user or via **Manage access** on the Admin users
 
 After deploying HR schema changes, run `npm run db:push` from **either** repo against the shared Neon database (hols schema includes all tables). Do not push from gateway alone if the schema is missing vacation models.
 
-**Important:** Gateway and hols share one database. Always use a schema that includes both gateway and hols models before `db:push`, or you risk dropping hols tables.
+**Important:** Gateway, hols, and assembly share one database. Always use a schema that includes **all** app models (gateway + hols + assembly) before `db:push`, or you risk dropping tables from the other apps.
 
 ## Related apps
 
