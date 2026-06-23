@@ -4,7 +4,7 @@ export type ToolCardIcon = {
   file: string;
 };
 
-/** MEAVO style guide icon library — bundled from Google Drive. */
+/** MEAVO style guide icon library — bundled from Google Drive plus custom tool icons. */
 export const TOOL_CARD_ICONS: ToolCardIcon[] = [
   { key: "frame-1000008429", label: "Icon 1", file: "/icons/tool-cards/frame-1000008429.svg" },
   { key: "frame-1000008430", label: "Icon 2", file: "/icons/tool-cards/frame-1000008430.svg" },
@@ -26,6 +26,14 @@ export const TOOL_CARD_ICONS: ToolCardIcon[] = [
   { key: "frame-1000008983", label: "Icon 18", file: "/icons/tool-cards/frame-1000008983.svg" },
   { key: "frame-1000008984", label: "Icon 19", file: "/icons/tool-cards/frame-1000008984.svg" },
   { key: "frame-1000008985", label: "Icon 20", file: "/icons/tool-cards/frame-1000008985.svg" },
+  { key: "vacation", label: "Vacation", file: "/icons/tool-cards/vacation.svg" },
+  { key: "assembly", label: "Assembly", file: "/icons/tool-cards/assembly.svg" },
+  { key: "levelling", label: "Levelling", file: "/icons/tool-cards/levelling.svg" },
+  { key: "handover", label: "Handover", file: "/icons/tool-cards/handover.svg" },
+  { key: "replacement", label: "Replacement", file: "/icons/tool-cards/replacement.svg" },
+  { key: "factory", label: "Factory", file: "/icons/tool-cards/factory.svg" },
+  { key: "door", label: "Door", file: "/icons/tool-cards/door.svg" },
+  { key: "cleaning", label: "Cleaning", file: "/icons/tool-cards/cleaning.svg" },
 ];
 
 export function isValidIconKey(key: string | null | undefined): boolean {
