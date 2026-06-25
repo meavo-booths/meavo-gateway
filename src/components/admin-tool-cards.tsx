@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ToolCardKind } from "@prisma/client";
 import {
   deleteToolCard,
   setCardAccess,
@@ -8,6 +9,9 @@ import {
 } from "@/app/actions/admin";
 import { ToolCardIcon } from "@/components/tool-card-icon";
 import { ToolCardIconPicker } from "@/components/tool-card-icon-picker";
+import { ToolCardKindBadge } from "@/components/tool-card-kind-badge";
+import { ToolCardKindFields } from "@/components/tool-card-kind-fields";
+import { toolCardAccessDescription, toolCardDeleteWarning } from "@/lib/tool-card-kind";
 import { Button, Input, Textarea } from "@/components/ui";
 
 type ToolCardData = {
@@ -16,6 +20,8 @@ type ToolCardData = {
   description: string;
   url: string;
   iconKey: string | null;
+  kind: ToolCardKind;
+  linkedAppKey: string | null;
   accessUserIds: string[];
 };
 
@@ -60,12 +66,16 @@ function Modal({
 function ToolCardRow({
   card,
   users,
+  usedLinkedAppKeys,
 }: {
   card: ToolCardData;
   users: UserOption[];
+  usedLinkedAppKeys: string[];
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+
+  const editUsedKeys = usedLinkedAppKeys.filter((key) => key !== card.linkedAppKey);
 
   return (
     <>
@@ -73,11 +83,15 @@ function ToolCardRow({
         <div className="flex min-w-0 gap-3">
           {card.iconKey && <ToolCardIcon iconKey={card.iconKey} size={32} className="mt-0.5" />}
           <div className="min-w-0">
-            <p className="font-medium text-slate-900">{card.name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium text-slate-900">{card.name}</p>
+              <ToolCardKindBadge kind={card.kind} linkedAppKey={card.linkedAppKey} />
+            </div>
             <p className="mt-1 text-sm text-slate-600">{card.description}</p>
             <p className="mt-1 truncate text-xs text-slate-500">{card.url}</p>
             <p className="mt-1 text-xs text-slate-500">
-              {card.accessUserIds.length} user{card.accessUserIds.length !== 1 ? "s" : ""} with access
+              {card.accessUserIds.length} user{card.accessUserIds.length !== 1 ? "s" : ""} with
+              access
             </p>
           </div>
         </div>
@@ -92,7 +106,13 @@ function ToolCardRow({
             type="button"
             variant="danger"
             onClick={() => {
-              if (window.confirm(`Delete "${card.name}"?`)) {
+              const message = toolCardDeleteWarning(
+                card.name,
+                card.kind,
+                card.linkedAppKey,
+                card.accessUserIds.length,
+              );
+              if (window.confirm(message)) {
                 void deleteToolCard(card.id);
               }
             }}
@@ -108,6 +128,11 @@ function ToolCardRow({
           <Input label="Name" name="name" defaultValue={card.name} required />
           <Textarea label="Description" name="description" defaultValue={card.description} required />
           <Input label="Link URL" name="url" type="url" defaultValue={card.url} required />
+          <ToolCardKindFields
+            defaultKind={card.kind}
+            defaultLinkedAppKey={card.linkedAppKey}
+            usedLinkedAppKeys={editUsedKeys}
+          />
           <ToolCardIconPicker defaultValue={card.iconKey} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
@@ -121,7 +146,9 @@ function ToolCardRow({
       <Modal title={`Access — ${card.name}`} open={accessOpen} onClose={() => setAccessOpen(false)}>
         <form action={setCardAccess} className="space-y-4" onSubmit={() => setAccessOpen(false)}>
           <input type="hidden" name="cardId" value={card.id} />
-          <p className="text-sm text-slate-600">Select users who can see this tool on the dashboard.</p>
+          <p className="text-sm text-slate-600">
+            {toolCardAccessDescription(card.kind, card.linkedAppKey)}
+          </p>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
             {users.map((user) => (
               <label key={user.id} className="flex items-center gap-2 text-sm">
@@ -151,9 +178,11 @@ function ToolCardRow({
 export function AdminToolCards({
   cards,
   users,
+  usedLinkedAppKeys,
 }: {
   cards: ToolCardData[];
   users: UserOption[];
+  usedLinkedAppKeys: string[];
 }) {
   if (cards.length === 0) {
     return <p className="mt-4 text-sm text-slate-500">No tool cards yet.</p>;
@@ -163,7 +192,12 @@ export function AdminToolCards({
     <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
       <ul className="divide-y divide-slate-100 bg-white">
         {cards.map((card) => (
-          <ToolCardRow key={card.id} card={card} users={users} />
+          <ToolCardRow
+            key={card.id}
+            card={card}
+            users={users}
+            usedLinkedAppKeys={usedLinkedAppKeys}
+          />
         ))}
       </ul>
     </div>

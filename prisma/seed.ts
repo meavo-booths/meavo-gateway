@@ -1,4 +1,4 @@
-import { PrismaClient, SystemRole, Company } from "@prisma/client";
+import { PrismaClient, SystemRole, Company, ToolCardKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -52,6 +52,8 @@ async function main() {
       name: "Vacation Tracker",
       description: "Request time off, view the team calendar, and manage approvals.",
       url: "https://hols.meavo.app",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "hols",
       sortOrder: 0,
       isActive: true,
     },
@@ -60,6 +62,8 @@ async function main() {
       name: "Vacation Tracker",
       description: "Request time off, view the team calendar, and manage approvals.",
       url: "https://hols.meavo.app",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "hols",
       sortOrder: 0,
       isActive: true,
     },
@@ -82,6 +86,8 @@ async function main() {
       name: "Assembly",
       description: "Install questionnaires for assembly partners.",
       url: "https://assembly.meavo.app",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "assembly",
       sortOrder: 1,
       isActive: true,
     },
@@ -90,6 +96,8 @@ async function main() {
       name: "Assembly",
       description: "Install questionnaires for assembly partners.",
       url: "https://assembly.meavo.app",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "assembly",
       sortOrder: 1,
       isActive: true,
     },

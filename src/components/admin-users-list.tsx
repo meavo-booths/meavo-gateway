@@ -134,7 +134,8 @@ function AdminUserRow({
             )}
           </div>
           <p className="text-sm text-slate-600">
-            Select tools this user can see on the dashboard.
+            Select tools this user can see on the dashboard. Cards marked App access also control
+            sign-in to that Meavo tool.
           </p>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
             {cardOptions.length === 0 ? (

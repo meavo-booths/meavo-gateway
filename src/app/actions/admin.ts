@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SystemRole, TeamRole } from "@prisma/client";
+import { SystemRole, TeamRole, ToolCardKind } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { parseIconKey } from "@/lib/tool-card-icons";
+import { parseToolCardKindFields } from "@/lib/tool-card-kind";
 import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
 
@@ -170,17 +171,47 @@ export async function updateTeamAllowance(
   revalidateAdminPages();
 }
 
+async function assertLinkedAppKeyAvailable(
+  linkedAppKey: string,
+  excludeCardId?: string,
+): Promise<boolean> {
+  const existing = await prisma.toolCard.findFirst({
+    where: {
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey,
+      ...(excludeCardId ? { id: { not: excludeCardId } } : {}),
+    },
+    select: { id: true },
+  });
+  return !existing;
+}
+
 export async function createToolCard(formData: FormData): Promise<void> {
   await requireAdmin();
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
   const url = (formData.get("url") as string)?.trim();
   const iconKey = parseIconKey(formData);
+  const kindFields = parseToolCardKindFields(formData);
 
-  if (!name || !description || !url) return;
+  if (!name || !description || !url || !kindFields) return;
+  if (
+    kindFields.kind === ToolCardKind.APP_ACCESS &&
+    kindFields.linkedAppKey &&
+    !(await assertLinkedAppKeyAvailable(kindFields.linkedAppKey))
+  ) {
+    return;
+  }
 
   await prisma.toolCard.create({
-    data: { name, description, url, iconKey },
+    data: {
+      name,
+      description,
+      url,
+      iconKey,
+      kind: kindFields.kind,
+      linkedAppKey: kindFields.linkedAppKey,
+    },
   });
 
   revalidateAdminPages();
@@ -194,12 +225,27 @@ export async function updateToolCard(formData: FormData): Promise<void> {
   const description = (formData.get("description") as string)?.trim();
   const url = (formData.get("url") as string)?.trim();
   const iconKey = parseIconKey(formData);
+  const kindFields = parseToolCardKindFields(formData);
 
-  if (!cardId || !name || !description || !url) return;
+  if (!cardId || !name || !description || !url || !kindFields) return;
+  if (
+    kindFields.kind === ToolCardKind.APP_ACCESS &&
+    kindFields.linkedAppKey &&
+    !(await assertLinkedAppKeyAvailable(kindFields.linkedAppKey, cardId))
+  ) {
+    return;
+  }
 
   await prisma.toolCard.update({
     where: { id: cardId },
-    data: { name, description, url, iconKey },
+    data: {
+      name,
+      description,
+      url,
+      iconKey,
+      kind: kindFields.kind,
+      linkedAppKey: kindFields.linkedAppKey,
+    },
   });
 
   revalidateAdminPages();

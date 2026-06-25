@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canGrantHrAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { ToolCardKind } from "@prisma/client";
 import { createTeam, createUser } from "@/app/actions/admin";
 import { AdminUsersList } from "@/components/admin-users-list";
+import { toolCardKindLabel } from "@/lib/tool-card-kind";
 import { TeamColorPicker } from "@/components/team-color-picker";
 import { Button, Card, Input, Select } from "@/components/ui";
 
@@ -33,12 +35,18 @@ export default async function AdminUsersPage() {
     }),
     prisma.toolCard.findMany({
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
+      select: { id: true, name: true, kind: true, linkedAppKey: true },
     }),
   ]);
 
   const teamOptions = teams.map((t) => ({ value: t.id, label: t.name }));
-  const cardOptions = cards.map((card) => ({ id: card.id, label: card.name }));
+  const cardOptions = cards.map((card) => ({
+    id: card.id,
+    label:
+      card.kind === ToolCardKind.APP_ACCESS
+        ? `${card.name} (${toolCardKindLabel(card.kind)})`
+        : card.name,
+  }));
 
   const adminUsers = users.map((user) => {
     const membership = user.teamMembers[0];
