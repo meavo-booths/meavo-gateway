@@ -1,5 +1,6 @@
 import { NotificationStatus, type NotificationOutbox } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isNotificationEventEnabled } from "@/lib/notifications/event-settings";
 import { NOTIFICATION_EVENTS } from "@/lib/notifications/registry";
 import { sendEmail } from "@/lib/notifications/send";
 
@@ -61,6 +62,19 @@ async function processOutboxRow(
       },
     });
     return "failed";
+  }
+
+  const enabled = await isNotificationEventEnabled(row.eventType);
+  if (!enabled) {
+    await prisma.notificationOutbox.update({
+      where: { id: row.id },
+      data: {
+        status: NotificationStatus.SENT,
+        sentAt: new Date(),
+        lastError: "Event disabled in admin",
+      },
+    });
+    return "skipped";
   }
 
   await prisma.notificationOutbox.update({

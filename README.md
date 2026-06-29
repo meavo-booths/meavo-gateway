@@ -78,7 +78,7 @@ npm run db:setup
 
 Gateway owns the notification **outbox** and sends email via Resend. Hols and assembly enqueue events into the same database; a Vercel Cron job on gateway (`/api/cron/process-notifications`, every 5 minutes) delivers them.
 
-Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway).
+Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway). Admins can enable or disable each event under **Admin → Notifications**.
 
 Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY` on hols or assembly.
 
