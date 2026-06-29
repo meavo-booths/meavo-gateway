@@ -109,6 +109,7 @@ export const TemplateBodyEditor = forwardRef<TemplateBodyEditorHandle, TemplateB
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
+          <ToolbarButton label="Title" onClick={() => applyTransform((ta) => prefixLines(ta, "! "))} />
           <ToolbarButton label="H1" onClick={() => applyTransform((ta) => prefixLines(ta, "# "))} />
           <ToolbarButton label="H2" onClick={() => applyTransform((ta) => prefixLines(ta, "## "))} />
           <ToolbarButton label="H3" onClick={() => applyTransform((ta) => prefixLines(ta, "### "))} />
@@ -140,13 +141,16 @@ export const TemplateBodyEditor = forwardRef<TemplateBodyEditorHandle, TemplateB
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
             <ul className="space-y-1">
               <li>
-                <code># Title</code> — large heading
+                <code>! Title</code> — document title (22pt)
               </li>
               <li>
-                <code>## Section</code> — section heading
+                <code># Heading</code> — large heading (18pt)
               </li>
               <li>
-                <code>### Subsection</code> — smaller heading
+                <code>## Section</code> — section heading (14pt)
+              </li>
+              <li>
+                <code>### Subsection</code> — smaller heading (12pt)
               </li>
               <li>
                 <code>- Item</code> — bullet list

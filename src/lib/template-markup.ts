@@ -8,6 +8,7 @@ export type InlineRun = {
 
 export type TemplateBlock =
   | { type: "paragraph"; runs: InlineRun[] }
+  | { type: "title"; runs: InlineRun[] }
   | { type: "heading"; level: 1 | 2 | 3; runs: InlineRun[] }
   | { type: "bullet"; runs: InlineRun[] }
   | { type: "center"; runs: InlineRun[] }
@@ -17,6 +18,7 @@ const BLOCK_PREFIXES: { prefix: string; block: (content: string) => TemplateBloc
   { prefix: "### ", block: (content) => ({ type: "heading", level: 3, runs: parseInlineRuns(content) }) },
   { prefix: "## ", block: (content) => ({ type: "heading", level: 2, runs: parseInlineRuns(content) }) },
   { prefix: "# ", block: (content) => ({ type: "heading", level: 1, runs: parseInlineRuns(content) }) },
+  { prefix: "! ", block: (content) => ({ type: "title", runs: parseInlineRuns(content) }) },
   { prefix: ">> ", block: (content) => ({ type: "center", runs: parseInlineRuns(content) }) },
   { prefix: "- ", block: (content) => ({ type: "bullet", runs: parseInlineRuns(content) }) },
   { prefix: "* ", block: (content) => ({ type: "bullet", runs: parseInlineRuns(content) }) },
@@ -140,8 +142,8 @@ function runsToHtml(runs: InlineRun[]): string {
     .map((run) => {
       let html = escapeHtml(run.text);
       if (run.bold) html = `<strong>${html}</strong>`;
-      if (run.size === "small") html = `<span class="text-[0.85em]">${html}</span>`;
-      if (run.size === "large") html = `<span class="text-[1.15em]">${html}</span>`;
+      if (run.size === "small") html = `<span style="font-size:9pt">${html}</span>`;
+      if (run.size === "large") html = `<span style="font-size:13pt">${html}</span>`;
       return html;
     })
     .join("");
@@ -172,6 +174,11 @@ export function templateMarkupToPreviewHtml(text: string): string {
     }
 
     const content = runsToHtml(block.runs);
+
+    if (block.type === "title") {
+      parts.push(`<p class="font-bold mt-3 mb-2" style="font-size:22pt">${content}</p>`);
+      continue;
+    }
 
     if (block.type === "heading") {
       const tag = block.level === 1 ? "h1" : block.level === 2 ? "h2" : "h3";

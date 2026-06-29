@@ -31,6 +31,8 @@ const HEADING_SIZES: Record<1 | 2 | 3, number> = {
   3: 12,
 };
 
+const TITLE_BLOCK_FONT_SIZE = 22;
+
 let cachedRegularFontBytes: ArrayBuffer | null = null;
 let cachedBoldFontBytes: ArrayBuffer | null = null;
 
@@ -168,6 +170,11 @@ function wrapRuns(runs: LayoutRun[], maxWidth: number): LayoutRun[][] {
   return lines.length > 0 ? lines : [[]];
 }
 
+function lineHeightForRuns(runs: LayoutRun[], fallback: number): number {
+  if (runs.length === 0) return fallback;
+  return lineHeightForSize(Math.max(...runs.map((run) => run.size), fallback));
+}
+
 function layoutBlock(
   block: TemplateBlock,
   fonts: FontSet,
@@ -178,15 +185,19 @@ function layoutBlock(
   }
 
   const baseSize =
-    block.type === "heading" ? HEADING_SIZES[block.level] : BODY_FONT_SIZE;
-  const forceBold = block.type === "heading";
+    block.type === "title"
+      ? TITLE_BLOCK_FONT_SIZE
+      : block.type === "heading"
+        ? HEADING_SIZES[block.level]
+        : BODY_FONT_SIZE;
+  const forceBold = block.type === "heading" || block.type === "title";
   const runs = flattenRuns(block.runs, fonts, baseSize, forceBold);
   const maxWidth =
     block.type === "bullet" ? contentWidth - BULLET_INDENT : contentWidth;
   const wrapped = wrapRuns(runs, maxWidth);
   const align = block.type === "center" ? "center" : "left";
   const xOffset = block.type === "bullet" ? BULLET_INDENT : 0;
-  const lineHeight = lineHeightForSize(baseSize);
+  const defaultLineHeight = lineHeightForSize(baseSize);
 
   return wrapped.map((lineRuns, index) => ({
     runs:
@@ -197,7 +208,7 @@ function layoutBlock(
           : lineRuns,
     align,
     xOffset,
-    lineHeight,
+    lineHeight: lineHeightForRuns(lineRuns, defaultLineHeight),
   }));
 }
 
@@ -208,7 +219,15 @@ function layoutDocument(blocks: TemplateBlock[], fonts: FontSet, contentWidth: n
     const blockLines = layoutBlock(block, fonts, contentWidth);
     lines.push(...blockLines);
 
-    if (block.type === "heading") {
+    if (block.type === "title") {
+      lines.push({
+        runs: [],
+        align: "left",
+        xOffset: 0,
+        lineHeight: 12,
+        isBlank: true,
+      });
+    } else if (block.type === "heading") {
       lines.push({
         runs: [],
         align: "left",
@@ -237,10 +256,13 @@ function drawLine(
     x = MARGIN + Math.max(0, (contentWidth - lineWidth) / 2);
   }
 
+  const baselineY =
+    line.runs.length > 0 ? y - Math.max(...line.runs.map((run) => run.size)) : y;
+
   for (const run of line.runs) {
     page.drawText(run.text, {
       x,
-      y: y - run.size,
+      y: baselineY,
       size: run.size,
       font: run.font,
       color: rgb(0.15, 0.15, 0.15),
