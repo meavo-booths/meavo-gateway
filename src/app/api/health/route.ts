@@ -6,7 +6,7 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({ status: "ok" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    console.error("Health check failed:", error);
+    return NextResponse.json({ status: "error" }, { status: 503 });
   }
 }
