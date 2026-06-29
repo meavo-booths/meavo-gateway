@@ -22,6 +22,6 @@ export function buttonLink(href: string, label: string): string {
   const safeHref = escapeHtml(href);
   const safeLabel = escapeHtml(label);
   return `<p style="margin: 24px 0;">
-    <a href="${safeHref}" style="display: inline-block; background: #7c2d12; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">${safeLabel}</a>
+    <a href="${safeHref}" style="display: inline-block; background: #30A46C; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">${safeLabel}</a>
   </p>`;
 }
