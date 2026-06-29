@@ -8,6 +8,8 @@ import {
   generateDocumentPdf,
   getTemplateGenerationDraft,
 } from "@/app/actions/document-templates";
+import { TemplateBodyEditor, type TemplateBodyEditorHandle } from "@/components/template-body-editor";
+import { TemplateMarkupPreview } from "@/components/template-markup-preview";
 import { TEMPLATE_PLACEHOLDER_OPTIONS } from "@/lib/template-placeholders";
 import { Button, Card, Input } from "@/components/ui";
 
@@ -35,23 +37,12 @@ type UserOption = { id: string; label: string };
 const fieldClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
 
-function insertIntoTextarea(textarea: HTMLTextAreaElement, snippet: string) {
-  const start = textarea.selectionStart ?? textarea.value.length;
-  const end = textarea.selectionEnd ?? textarea.value.length;
-  const next = `${textarea.value.slice(0, start)}${snippet}${textarea.value.slice(end)}`;
-  textarea.value = next;
-  const cursor = start + snippet.length;
-  textarea.setSelectionRange(cursor, cursor);
-  textarea.focus();
-  return next;
-}
-
 function CreateTemplateForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyEditorRef = useRef<TemplateBodyEditorHandle>(null);
 
   if (!open) {
     return (
@@ -104,8 +95,8 @@ function CreateTemplateForm({ onCreated }: { onCreated: () => void }) {
             defaultValue=""
             onChange={(e) => {
               const path = e.target.value;
-              if (!path || !bodyRef.current) return;
-              setBody(insertIntoTextarea(bodyRef.current, `{{${path}}}`));
+              if (!path) return;
+              bodyEditorRef.current?.insertSnippet(`{{${path}}}`);
               e.target.value = "";
             }}
           >
@@ -119,14 +110,12 @@ function CreateTemplateForm({ onCreated }: { onCreated: () => void }) {
         </label>
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700">Template body</span>
-          <textarea
-            ref={bodyRef}
-            name="body"
+          <TemplateBodyEditor
+            ref={bodyEditorRef}
+            value={body}
+            onChange={setBody}
             required
             rows={12}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className={`${fieldClassName} font-mono`}
             placeholder="Agreement between {{company.legalName}} and {{user.name}}…"
           />
         </label>
@@ -289,9 +278,7 @@ function GenerateDocumentModal({
         {preview && (
           <div className="mt-4">
             <h4 className="text-sm font-semibold text-slate-900">Preview</h4>
-            <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-              {preview}
-            </pre>
+            <TemplateMarkupPreview text={preview} />
           </div>
         )}
 
@@ -361,7 +348,7 @@ function EditTemplateModal({
   const [body, setBody] = useState(template.currentVersion.body);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyEditorRef = useRef<TemplateBodyEditorHandle>(null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -399,8 +386,8 @@ function EditTemplateModal({
               defaultValue=""
               onChange={(e) => {
                 const path = e.target.value;
-                if (!path || !bodyRef.current) return;
-                setBody(insertIntoTextarea(bodyRef.current, `{{${path}}}`));
+                if (!path) return;
+                bodyEditorRef.current?.insertSnippet(`{{${path}}}`);
                 e.target.value = "";
               }}
             >
@@ -414,13 +401,12 @@ function EditTemplateModal({
           </label>
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-slate-700">Template body</span>
-            <textarea
-              ref={bodyRef}
+            <TemplateBodyEditor
+              ref={bodyEditorRef}
+              value={body}
+              onChange={setBody}
               required
               rows={14}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className={`${fieldClassName} font-mono`}
             />
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
