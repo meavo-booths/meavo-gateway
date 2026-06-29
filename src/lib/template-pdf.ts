@@ -4,6 +4,7 @@ import {
   type InlineRun,
   type InlineSize,
   type TemplateBlock,
+  getBlockAlign,
   parseTemplateMarkup,
 } from "@/lib/template-markup";
 
@@ -192,11 +193,14 @@ function layoutBlock(
         : BODY_FONT_SIZE;
   const forceBold = block.type === "heading" || block.type === "title";
   const runs = flattenRuns(block.runs, fonts, baseSize, forceBold);
+  const align = getBlockAlign(block);
+  const centeredBullet = block.type === "bullet" && align === "center";
   const maxWidth =
-    block.type === "bullet" ? contentWidth - BULLET_INDENT : contentWidth;
+    block.type === "bullet" && !centeredBullet
+      ? contentWidth - BULLET_INDENT
+      : contentWidth;
   const wrapped = wrapRuns(runs, maxWidth);
-  const align = block.type === "center" ? "center" : "left";
-  const xOffset = block.type === "bullet" ? BULLET_INDENT : 0;
+  const xOffset = block.type === "bullet" && !centeredBullet ? BULLET_INDENT : 0;
   const defaultLineHeight = lineHeightForSize(baseSize);
 
   return wrapped.map((lineRuns, index) => ({
@@ -250,10 +254,12 @@ function drawLine(
   if (line.isBlank) return;
 
   const lineWidth = measureRuns(line.runs);
-  let x = MARGIN + line.xOffset;
+  let x: number;
 
   if (line.align === "center") {
     x = MARGIN + Math.max(0, (contentWidth - lineWidth) / 2);
+  } else {
+    x = MARGIN + line.xOffset;
   }
 
   const baselineY =

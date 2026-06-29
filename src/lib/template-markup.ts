@@ -1,5 +1,9 @@
 export type InlineSize = "small" | "normal" | "large";
 
+export type BlockAlign = "left" | "center";
+
+export const CENTER_LINE_PREFIX = ">> ";
+
 export type InlineRun = {
   text: string;
   bold?: boolean;
@@ -7,11 +11,10 @@ export type InlineRun = {
 };
 
 export type TemplateBlock =
-  | { type: "paragraph"; runs: InlineRun[] }
-  | { type: "title"; runs: InlineRun[] }
-  | { type: "heading"; level: 1 | 2 | 3; runs: InlineRun[] }
-  | { type: "bullet"; runs: InlineRun[] }
-  | { type: "center"; runs: InlineRun[] }
+  | { type: "paragraph"; runs: InlineRun[]; align?: BlockAlign }
+  | { type: "title"; runs: InlineRun[]; align?: BlockAlign }
+  | { type: "heading"; level: 1 | 2 | 3; runs: InlineRun[]; align?: BlockAlign }
+  | { type: "bullet"; runs: InlineRun[]; align?: BlockAlign }
   | { type: "blank" };
 
 const BLOCK_PREFIXES: { prefix: string; block: (content: string) => TemplateBlock }[] = [
@@ -19,16 +22,43 @@ const BLOCK_PREFIXES: { prefix: string; block: (content: string) => TemplateBloc
   { prefix: "## ", block: (content) => ({ type: "heading", level: 2, runs: parseInlineRuns(content) }) },
   { prefix: "# ", block: (content) => ({ type: "heading", level: 1, runs: parseInlineRuns(content) }) },
   { prefix: "! ", block: (content) => ({ type: "title", runs: parseInlineRuns(content) }) },
-  { prefix: ">> ", block: (content) => ({ type: "center", runs: parseInlineRuns(content) }) },
   { prefix: "- ", block: (content) => ({ type: "bullet", runs: parseInlineRuns(content) }) },
   { prefix: "* ", block: (content) => ({ type: "bullet", runs: parseInlineRuns(content) }) },
 ];
+
+const BLOCK_STYLE_PREFIXES = ["### ", "## ", "# ", "! ", "- ", "* "] as const;
 
 type InlineToken =
   | { kind: "text"; value: string }
   | { kind: "bold"; value: string }
   | { kind: "small"; value: string }
   | { kind: "large"; value: string };
+
+export function stripCenterPrefix(line: string): { align: BlockAlign; rest: string } {
+  if (line.startsWith(CENTER_LINE_PREFIX)) {
+    return { align: "center", rest: line.slice(CENTER_LINE_PREFIX.length) };
+  }
+  return { align: "left", rest: line };
+}
+
+export function stripBlockStylePrefix(line: string): { prefix: string; rest: string } {
+  for (const prefix of BLOCK_STYLE_PREFIXES) {
+    if (line.startsWith(prefix)) {
+      return { prefix, rest: line.slice(prefix.length) };
+    }
+  }
+  return { prefix: "", rest: line };
+}
+
+export function getBlockAlign(block: TemplateBlock): BlockAlign {
+  if (block.type === "blank") return "left";
+  return block.align === "center" ? "center" : "left";
+}
+
+function withAlign(block: TemplateBlock, align: BlockAlign): TemplateBlock {
+  if (block.type === "blank" || align === "left") return block;
+  return { ...block, align: "center" };
+}
 
 function tokenizeInline(input: string): InlineToken[] {
   const tokens: InlineToken[] = [];
@@ -116,13 +146,15 @@ function parseLine(line: string): TemplateBlock {
     return { type: "blank" };
   }
 
+  const { align, rest } = stripCenterPrefix(line);
+
   for (const { prefix, block } of BLOCK_PREFIXES) {
-    if (line.startsWith(prefix)) {
-      return block(line.slice(prefix.length));
+    if (rest.startsWith(prefix)) {
+      return withAlign(block(rest.slice(prefix.length)), align);
     }
   }
 
-  return { type: "paragraph", runs: parseInlineRuns(line) };
+  return withAlign({ type: "paragraph", runs: parseInlineRuns(rest) }, align);
 }
 
 export function parseTemplateMarkup(text: string): TemplateBlock[] {
@@ -149,19 +181,33 @@ function runsToHtml(runs: InlineRun[]): string {
     .join("");
 }
 
+function centerClass(align: BlockAlign): string {
+  return align === "center" ? " text-center" : "";
+}
+
 export function templateMarkupToPreviewHtml(text: string): string {
   const blocks = parseTemplateMarkup(text);
   const parts: string[] = [];
   let bulletItems: string[] = [];
+  let bulletAlign: BlockAlign = "left";
 
   function flushBullets() {
     if (bulletItems.length === 0) return;
-    parts.push(`<ul class="list-disc pl-5 my-2 space-y-1">${bulletItems.join("")}</ul>`);
+    const listClass =
+      bulletAlign === "center"
+        ? "list-none pl-0 my-2 space-y-1 text-center"
+        : "list-disc pl-5 my-2 space-y-1";
+    parts.push(`<ul class="${listClass}">${bulletItems.join("")}</ul>`);
     bulletItems = [];
+    bulletAlign = "left";
   }
 
   for (const block of blocks) {
     if (block.type === "bullet") {
+      if (bulletItems.length > 0 && getBlockAlign(block) !== bulletAlign) {
+        flushBullets();
+      }
+      bulletAlign = getBlockAlign(block);
       bulletItems.push(`<li>${runsToHtml(block.runs)}</li>`);
       continue;
     }
@@ -174,9 +220,12 @@ export function templateMarkupToPreviewHtml(text: string): string {
     }
 
     const content = runsToHtml(block.runs);
+    const align = getBlockAlign(block);
 
     if (block.type === "title") {
-      parts.push(`<p class="font-bold mt-3 mb-2" style="font-size:22pt">${content}</p>`);
+      parts.push(
+        `<p class="font-bold mt-3 mb-2${centerClass(align)}" style="font-size:22pt">${content}</p>`
+      );
       continue;
     }
 
@@ -188,16 +237,11 @@ export function templateMarkupToPreviewHtml(text: string): string {
           : block.level === 2
             ? "text-lg font-bold mt-3 mb-1"
             : "text-base font-semibold mt-2 mb-1";
-      parts.push(`<${tag} class="${sizeClass}">${content}</${tag}>`);
+      parts.push(`<${tag} class="${sizeClass}${centerClass(align)}">${content}</${tag}>`);
       continue;
     }
 
-    if (block.type === "center") {
-      parts.push(`<p class="text-center my-2">${content}</p>`);
-      continue;
-    }
-
-    parts.push(`<p class="my-1">${content}</p>`);
+    parts.push(`<p class="my-1${align === "center" ? " text-center my-2" : ""}">${content}</p>`);
   }
 
   flushBullets();

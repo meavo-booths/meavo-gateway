@@ -1,6 +1,11 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  CENTER_LINE_PREFIX,
+  stripBlockStylePrefix,
+  stripCenterPrefix,
+} from "@/lib/template-markup";
 
 const fieldClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
@@ -40,7 +45,30 @@ function wrapSelection(textarea: HTMLTextAreaElement, before: string, after: str
   return next;
 }
 
-function prefixLines(textarea: HTMLTextAreaElement, prefix: string): string {
+function applyLinePrefix(line: string, prefix: string): string {
+  if (line.length === 0) return line;
+
+  const { align, rest } = stripCenterPrefix(line);
+  const centered = align === "center";
+  const { prefix: existingPrefix, rest: body } = stripBlockStylePrefix(rest);
+
+  if (existingPrefix === prefix) {
+    const nextBody = body;
+    if (!nextBody && !centered) return line;
+    return `${centered ? CENTER_LINE_PREFIX : ""}${nextBody}`;
+  }
+
+  return `${centered ? CENTER_LINE_PREFIX : ""}${prefix}${body}`;
+}
+
+function toggleCenterPrefix(line: string): string {
+  if (line.length === 0) return CENTER_LINE_PREFIX;
+  const { align, rest } = stripCenterPrefix(line);
+  if (align === "center") return rest;
+  return `${CENTER_LINE_PREFIX}${line}`;
+}
+
+function prefixLines(textarea: HTMLTextAreaElement, prefix: string, mode: "block" | "center"): string {
   const start = textarea.selectionStart ?? 0;
   const end = textarea.selectionEnd ?? textarea.value.length;
   const before = textarea.value.slice(0, start);
@@ -52,7 +80,9 @@ function prefixLines(textarea: HTMLTextAreaElement, prefix: string): string {
   const block = textarea.value.slice(lineStart, start + lineEndOffset);
   const prefixed = block
     .split("\n")
-    .map((line) => (line.length === 0 ? line : `${prefix}${line}`))
+    .map((line) =>
+      mode === "center" ? toggleCenterPrefix(line) : applyLinePrefix(line, prefix)
+    )
     .join("\n");
 
   const next = `${textarea.value.slice(0, lineStart)}${prefixed}${after}`;
@@ -109,12 +139,12 @@ export const TemplateBodyEditor = forwardRef<TemplateBodyEditorHandle, TemplateB
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
-          <ToolbarButton label="Title" onClick={() => applyTransform((ta) => prefixLines(ta, "! "))} />
-          <ToolbarButton label="H1" onClick={() => applyTransform((ta) => prefixLines(ta, "# "))} />
-          <ToolbarButton label="H2" onClick={() => applyTransform((ta) => prefixLines(ta, "## "))} />
-          <ToolbarButton label="H3" onClick={() => applyTransform((ta) => prefixLines(ta, "### "))} />
-          <ToolbarButton label="Bullet" onClick={() => applyTransform((ta) => prefixLines(ta, "- "))} />
-          <ToolbarButton label="Center" onClick={() => applyTransform((ta) => prefixLines(ta, ">> "))} />
+          <ToolbarButton label="Title" onClick={() => applyTransform((ta) => prefixLines(ta, "! ", "block"))} />
+          <ToolbarButton label="H1" onClick={() => applyTransform((ta) => prefixLines(ta, "# ", "block"))} />
+          <ToolbarButton label="H2" onClick={() => applyTransform((ta) => prefixLines(ta, "## ", "block"))} />
+          <ToolbarButton label="H3" onClick={() => applyTransform((ta) => prefixLines(ta, "### ", "block"))} />
+          <ToolbarButton label="Bullet" onClick={() => applyTransform((ta) => prefixLines(ta, "- ", "block"))} />
+          <ToolbarButton label="Center" onClick={() => applyTransform((ta) => prefixLines(ta, "", "center"))} />
           <ToolbarButton
             label="Bold"
             onClick={() => applyTransform((ta) => wrapSelection(ta, "**", "**"))}
@@ -156,7 +186,16 @@ export const TemplateBodyEditor = forwardRef<TemplateBodyEditorHandle, TemplateB
                 <code>- Item</code> — bullet list
               </li>
               <li>
-                <code>&gt;&gt; Centered text</code> — centered line
+                <code>&gt;&gt; Centered text</code> — centered line (combine with styles below)
+              </li>
+              <li>
+                <code>&gt;&gt; ! Title</code> — centered document title (22pt)
+              </li>
+              <li>
+                <code>&gt;&gt; # Heading</code> — centered heading (18pt)
+              </li>
+              <li>
+                <code>&gt;&gt; - Item</code> — centered bullet line
               </li>
               <li>
                 <code>**bold**</code> — bold text
