@@ -51,6 +51,10 @@ For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db
    - `HR_ACCESS_GRANTOR_EMAIL` — comma-separated emails; only these users can grant or revoke HR access in Admin
    - `ADMIN_PASSWORD` (for initial seed only)
    - `BLOB_READ_WRITE_TOKEN` — Vercel Blob (HR contract PDFs); create in Vercel Storage → Blob
+   - `RESEND_API_KEY` — [Resend](https://resend.com) API key for email notifications
+   - `EMAIL_FROM` — e.g. `MEAVO <notifications@meavo.app>` (domain must be verified in Resend)
+   - `CRON_SECRET` — protects `/api/cron/process-notifications` (Vercel Cron)
+   - `EMAIL_DEV_OVERRIDE` (optional) — redirect all notification emails in development
 4. Deploy, then initialize the production database:
 
 ```bash
@@ -68,6 +72,23 @@ npm run db:setup
 - **Users** — create accounts, assign teams, reset passwords, grant Admin / HR access
 - **Teams** — name, colour, yearly allowance (days)
 - **Tool cards** — grant access; Vacation Tracker card controls hols login
+- **Notifications** — recent email delivery log (processed by gateway cron)
+
+## Email notifications
+
+Gateway owns the notification **outbox** and sends email via Resend. Hols and assembly enqueue events into the same database; a Vercel Cron job on gateway (`/api/cron/process-notifications`, every 5 minutes) delivers them.
+
+Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway).
+
+Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY` on hols or assembly.
+
+After adding notification tables, run the targeted SQL script (safe when gateway schema lags assembly/hols):
+
+```bash
+npx prisma db execute --file scripts/add-notification-tables.sql --schema prisma/schema.prisma
+```
+
+Do **not** run a full `db:push` from gateway alone if the schema is missing assembly models.
 
 ## HR (confidential)
 

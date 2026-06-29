@@ -5,6 +5,7 @@ import { Company, ContractType } from "@prisma/client";
 import { del, put } from "@vercel/blob";
 import { requireHr } from "@/lib/hr-auth";
 import { prisma } from "@/lib/prisma";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -55,7 +56,7 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
     return { error: "This user is already an employee." };
   }
 
-  await prisma.employee.create({
+  const employee = await prisma.employee.create({
     data: {
       userId,
       company,
@@ -63,6 +64,15 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
       startDate,
       role,
     },
+  });
+
+  void enqueueNotification({
+    sourceApp: "gateway",
+    eventType: "gateway.employee.hired",
+    idempotencyKey: `gateway:employee:hired:${employee.id}`,
+    payload: { employeeId: employee.id, userId },
+  }).catch((error) => {
+    console.error("Notification enqueue failed:", error);
   });
 
   revalidateHrPages();
@@ -130,6 +140,15 @@ export async function endEmployeeContract(formData: FormData): Promise<{ error?:
   await prisma.employee.update({
     where: { id: employeeId },
     data: { endDate },
+  });
+
+  void enqueueNotification({
+    sourceApp: "gateway",
+    eventType: "gateway.employee.contract_ended",
+    idempotencyKey: `gateway:employee:ended:${employeeId}:${endDate.toISOString().slice(0, 10)}`,
+    payload: { employeeId },
+  }).catch((error) => {
+    console.error("Notification enqueue failed:", error);
   });
 
   revalidateHrPages();

@@ -9,6 +9,7 @@ import { parseIconKey } from "@/lib/tool-card-icons";
 import { parseToolCardKindFields } from "@/lib/tool-card-kind";
 import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 async function requireAdmin() {
   const session = await auth();
@@ -43,8 +44,8 @@ export async function createUser(formData: FormData): Promise<void> {
 
   const passwordHash = password ? await hashPassword(password) : null;
 
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
       data: {
         email,
         name,
@@ -55,8 +56,19 @@ export async function createUser(formData: FormData): Promise<void> {
     });
 
     await tx.teamMember.create({
-      data: { userId: user.id, teamId, role },
+      data: { userId: created.id, teamId, role },
     });
+
+    return created;
+  });
+
+  void enqueueNotification({
+    sourceApp: "gateway",
+    eventType: "gateway.user.created",
+    idempotencyKey: `gateway:user:created:${user.id}`,
+    payload: { userId: user.id },
+  }).catch((error) => {
+    console.error("Notification enqueue failed:", error);
   });
 
   revalidateAdminPages();

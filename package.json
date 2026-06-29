@@ -27,7 +27,8 @@
     "pdf-lib": "^1.17.1",
     "prisma": "^6.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^6.16.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
