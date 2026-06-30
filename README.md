@@ -2,7 +2,7 @@
 
 Company tools dashboard for [meavo.app](https://meavo.app). Users sign in and open the apps they have access to (e.g. Vacation Tracker at hols.meavo.app).
 
-Gateway is the **source of truth** for users, teams, and tool access. [Vacation Tracker](https://github.com/meavo-stack/hols) connects to the **same Neon database** for shared users and teams.
+Gateway is the **source of truth** for users, teams, and tool access. [Vacation Tracker](https://github.com/meavo-booths/hols) connects to the **same Neon database** for shared users and teams.
 
 ## Shared database
 
@@ -110,5 +110,6 @@ After deploying HR schema changes, run `npm run db:push` from **either** repo ag
 
 | App | Domain | Repo |
 |-----|--------|------|
-| Gateway | meavo.app | meavo-gateway |
-| Vacation Tracker | hols.meavo.app | hols |
+| Gateway | [meavo.app](https://meavo.app) | [meavo-booths/meavo-gateway](https://github.com/meavo-booths/meavo-gateway) |
+| Vacation Tracker | [hols.meavo.app](https://hols.meavo.app) | [meavo-booths/hols](https://github.com/meavo-booths/hols) |
+| Assembly | [assembly.meavo.app](https://assembly.meavo.app) | [meavo-booths/assembly](https://github.com/meavo-booths/assembly) |
