@@ -3,8 +3,11 @@ import { getSheetValues } from "@/lib/google-sheets-client";
 import {
   GATEWAY_SHEET_IMPORT_STATE_ID,
   SHEET_COLUMNS,
+  SHEET_FIELD_KEYS,
 } from "@/lib/sheet-columns";
 import { prisma } from "@/lib/prisma";
+
+const MAX_REVENUE_EUR = 9_999_999_999.99;
 
 function parseSheetDate(value: string): Date | null {
   const trimmed = value.trim();
@@ -23,16 +26,8 @@ function parseRevenueEur(value: string): Prisma.Decimal | null {
   if (!trimmed) return null;
   const normalized = trimmed.replace(/[€\s,]/g, "");
   const amount = Number.parseFloat(normalized);
-  if (!Number.isFinite(amount)) return null;
+  if (!Number.isFinite(amount) || amount < 0 || amount > MAX_REVENUE_EUR) return null;
   return new Prisma.Decimal(amount.toFixed(2));
-}
-
-function extractTypedFields(row: string[]) {
-  const salesRep = String(row[SHEET_COLUMNS.salesRep] ?? "").trim() || null;
-  const invoiceDate = parseSheetDate(String(row[SHEET_COLUMNS.invoiceDate] ?? ""));
-  const revenueEur = parseRevenueEur(String(row[SHEET_COLUMNS.revenueEur] ?? ""));
-
-  return { salesRep, invoiceDate, revenueEur };
 }
 
 function slugifyHeader(header: string): string {
@@ -55,6 +50,33 @@ function rowToRecord(headers: string[], row: string[]): Record<string, string> {
   }
 
   return record;
+}
+
+function fieldValue(
+  record: Record<string, string>,
+  key: string,
+  columnIndex: number,
+  row: string[]
+): string {
+  return record[key]?.trim() || String(row[columnIndex] ?? "").trim();
+}
+
+function extractTypedFields(record: Record<string, string>, row: string[]) {
+  const salesRep =
+    fieldValue(record, SHEET_FIELD_KEYS.salesRep, SHEET_COLUMNS.salesRep, row) || null;
+  const invoiceDate = parseSheetDate(
+    fieldValue(record, SHEET_FIELD_KEYS.invoiceDate, SHEET_COLUMNS.invoiceDate, row)
+  );
+  const revenueEur = parseRevenueEur(
+    fieldValue(record, SHEET_FIELD_KEYS.revenueEur, SHEET_COLUMNS.revenueEur, row)
+  );
+
+  return { salesRep, invoiceDate, revenueEur };
+}
+
+function resolveRowKey(record: Record<string, string>, row: string[]): string | null {
+  const dealId = fieldValue(record, SHEET_FIELD_KEYS.dealId, SHEET_COLUMNS.rowKey, row);
+  return dealId || null;
 }
 
 async function recordImportState(input: {
@@ -94,11 +116,11 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
 
     for (let i = 1; i < rows.length; i += 1) {
       const row = rows[i] ?? [];
-      const rowKey = String(row[SHEET_COLUMNS.rowKey] ?? "").trim();
+      const data = rowToRecord(headers, row);
+      const rowKey = resolveRowKey(data, row);
       if (!rowKey) continue;
 
-      const data = rowToRecord(headers, row);
-      const { salesRep, invoiceDate, revenueEur } = extractTypedFields(row);
+      const { salesRep, invoiceDate, revenueEur } = extractTypedFields(data, row);
 
       await prisma.gatewaySheetRecord.upsert({
         where: { rowKey },

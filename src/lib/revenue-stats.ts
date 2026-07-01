@@ -87,49 +87,60 @@ export async function getHomeRevenueStats(now = new Date()): Promise<HomeRevenue
   const { date: referenceDay, label: referenceDayLabel } = getRevenueReferenceDay(now);
   const { start: lastWeekStart, end: lastWeekEnd } = getLastCalendarWeekRange(now);
 
-  const [referenceDaySum, biggestDeal, lastWeekSum] = await Promise.all([
-    prisma.gatewaySheetRecord.aggregate({
-      where: { invoiceDate: referenceDay },
-      _sum: { revenueEur: true },
-    }),
-    prisma.gatewaySheetRecord.findFirst({
-      where: {
-        invoiceDate: referenceDay,
-        revenueEur: { not: null },
-      },
-      orderBy: { revenueEur: "desc" },
-      select: {
-        rowKey: true,
-        revenueEur: true,
-        salesRep: true,
-      },
-    }),
-    prisma.gatewaySheetRecord.aggregate({
-      where: {
-        invoiceDate: {
-          gte: lastWeekStart,
-          lte: lastWeekEnd,
+  try {
+    const [referenceDaySum, biggestDeal, lastWeekSum] = await Promise.all([
+      prisma.gatewaySheetRecord.aggregate({
+        where: { invoiceDate: referenceDay },
+        _sum: { revenueEur: true },
+      }),
+      prisma.gatewaySheetRecord.findFirst({
+        where: {
+          invoiceDate: referenceDay,
+          revenueEur: { not: null },
         },
-      },
-      _sum: { revenueEur: true },
-    }),
-  ]);
+        orderBy: { revenueEur: "desc" },
+        select: {
+          rowKey: true,
+          revenueEur: true,
+          salesRep: true,
+        },
+      }),
+      prisma.gatewaySheetRecord.aggregate({
+        where: {
+          invoiceDate: {
+            gte: lastWeekStart,
+            lte: lastWeekEnd,
+          },
+        },
+        _sum: { revenueEur: true },
+      }),
+    ]);
 
-  const referenceDayRevenue = decimalToNumber(referenceDaySum._sum.revenueEur);
-  const lastWeekRevenue = decimalToNumber(lastWeekSum._sum.revenueEur);
+    const referenceDayRevenue = decimalToNumber(referenceDaySum._sum.revenueEur);
+    const lastWeekRevenue = decimalToNumber(lastWeekSum._sum.revenueEur);
 
-  return {
-    referenceDayLabel,
-    referenceDayRevenue,
-    biggestDeal:
-      biggestDeal?.revenueEur != null
-        ? {
-            revenue: biggestDeal.revenueEur.toNumber(),
-            salesRep: biggestDeal.salesRep?.trim() || "Unknown",
-            dealId: biggestDeal.rowKey,
-          }
-        : null,
-    lastWeekRevenue,
-    lastWeekLabel: formatWeekLabel(lastWeekStart, lastWeekEnd),
-  };
+    return {
+      referenceDayLabel,
+      referenceDayRevenue,
+      biggestDeal:
+        biggestDeal?.revenueEur != null
+          ? {
+              revenue: biggestDeal.revenueEur.toNumber(),
+              salesRep: biggestDeal.salesRep?.trim() || "Unknown",
+              dealId: biggestDeal.rowKey,
+            }
+          : null,
+      lastWeekRevenue,
+      lastWeekLabel: formatWeekLabel(lastWeekStart, lastWeekEnd),
+    };
+  } catch (error) {
+    console.error("Failed to load home revenue stats:", error);
+    return {
+      referenceDayLabel,
+      referenceDayRevenue: 0,
+      biggestDeal: null,
+      lastWeekRevenue: 0,
+      lastWeekLabel: formatWeekLabel(lastWeekStart, lastWeekEnd),
+    };
+  }
 }
