@@ -2,8 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/permissions";
+import { getToolCardStatsMap } from "@/lib/tool-card-stats";
 import { ToolCardTile } from "@/components/tool-card-tile";
 import { Card, PageHeader } from "@/components/ui";
+
+export const revalidate = 300;
 
 export default async function HomePage() {
   const session = await auth();
@@ -23,6 +26,8 @@ export default async function HomePage() {
         },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
+
+  const statsByKey = await getToolCardStatsMap(cards.map((card) => card.linkedAppKey));
 
   return (
     <div>
@@ -46,6 +51,7 @@ export default async function HomePage() {
               description={card.description}
               url={card.url}
               iconKey={card.iconKey}
+              stats={card.linkedAppKey ? statsByKey.get(card.linkedAppKey) ?? null : null}
             />
           ))}
         </div>
