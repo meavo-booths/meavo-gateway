@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { changePassword, updateProfileName } from "@/app/actions/profile";
 import { Button, Card, Input } from "@/components/ui";
-import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatar } from "@meavo/navigation";
 
 type ProfileTeam = {
   name: string;
