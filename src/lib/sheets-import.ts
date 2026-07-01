@@ -6,6 +6,35 @@ import {
 } from "@/lib/sheet-columns";
 import { prisma } from "@/lib/prisma";
 
+function parseSheetDate(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/[/.-]/);
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts.map((p) => parseInt(p, 10));
+  if (!d || !m || !y) return null;
+  const year = y < 100 ? 2000 + y : y;
+  const date = new Date(Date.UTC(year, m - 1, d));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseRevenueEur(value: string): Prisma.Decimal | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/[€\s,]/g, "");
+  const amount = Number.parseFloat(normalized);
+  if (!Number.isFinite(amount)) return null;
+  return new Prisma.Decimal(amount.toFixed(2));
+}
+
+function extractTypedFields(row: string[]) {
+  const salesRep = String(row[SHEET_COLUMNS.salesRep] ?? "").trim() || null;
+  const invoiceDate = parseSheetDate(String(row[SHEET_COLUMNS.invoiceDate] ?? ""));
+  const revenueEur = parseRevenueEur(String(row[SHEET_COLUMNS.revenueEur] ?? ""));
+
+  return { salesRep, invoiceDate, revenueEur };
+}
+
 function slugifyHeader(header: string): string {
   return header
     .trim()
@@ -69,16 +98,23 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
       if (!rowKey) continue;
 
       const data = rowToRecord(headers, row);
+      const { salesRep, invoiceDate, revenueEur } = extractTypedFields(row);
 
       await prisma.gatewaySheetRecord.upsert({
         where: { rowKey },
         create: {
           rowKey,
           data,
+          salesRep,
+          invoiceDate,
+          revenueEur,
           lastImportedAt: new Date(),
         },
         update: {
           data,
+          salesRep,
+          invoiceDate,
+          revenueEur,
           lastImportedAt: new Date(),
         },
       });

@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/permissions";
+import { getHomeRevenueStats } from "@/lib/revenue-stats";
 import { getToolCardStatsMap } from "@/lib/tool-card-stats";
+import { RevenueSummaryCard } from "@/components/revenue-summary-card";
 import { ToolCardTile } from "@/components/tool-card-tile";
 import { Card, PageHeader } from "@/components/ui";
 
@@ -27,7 +29,10 @@ export default async function HomePage() {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
 
-  const statsByKey = await getToolCardStatsMap(cards.map((card) => card.linkedAppKey));
+  const [revenueStats, statsByKey] = await Promise.all([
+    getHomeRevenueStats(),
+    getToolCardStatsMap(cards.map((card) => card.linkedAppKey)),
+  ]);
 
   return (
     <div>
@@ -35,6 +40,10 @@ export default async function HomePage() {
         title="Meavo tools"
         description="Open the apps and tools you have access to."
       />
+
+      <div className="mb-6">
+        <RevenueSummaryCard stats={revenueStats} />
+      </div>
 
       {cards.length === 0 ? (
         <Card>
