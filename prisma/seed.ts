@@ -122,6 +122,12 @@ async function main() {
     });
   }
 
+  await prisma.libraryAsset.upsert({
+    where: { slug: "market-dashboard" },
+    update: { title: "Market Dashboard" },
+    create: { slug: "market-dashboard", title: "Market Dashboard" },
+  });
+
   console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker and Assembly cards.`);
 }
 

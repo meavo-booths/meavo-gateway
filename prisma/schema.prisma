@@ -79,6 +79,7 @@ model User {
   documentTemplateVersionsCreated DocumentTemplateVersion[] @relation("DocumentTemplateVersionCreator")
   generatedDocuments           GeneratedDocument[]       @relation("GeneratedDocumentCreator")
   generatedDocumentsAsSubject  GeneratedDocument[]       @relation("GeneratedDocumentSubject")
+  libraryAssetsUploaded      LibraryAsset[]
 }
 
 model Account {
@@ -240,6 +241,20 @@ model GeneratedDocument {
 
   @@index([templateVersionId])
   @@index([subjectUserId])
+}
+
+model LibraryAsset {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  fileName     String?
+  mimeType     String?
+  storageKey   String?
+  uploadedById String?
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 }
 
 // Vacation Tracker–specific (shared DB — gateway does not use these directly)

@@ -17,6 +17,7 @@ const GATEWAY_URL = process.env.GATEWAY_URL ?? "https://meavo.app";
 
 const links: { href: string; label: string; adminOnly?: boolean; hrOnly?: boolean }[] = [
   { href: "/", label: "Home" },
+  { href: "/library", label: "Library" },
   { href: "/admin", label: "Admin", adminOnly: true },
   { href: "/hr", label: "HR", hrOnly: true },
   { href: "/profile", label: "Profile" },
