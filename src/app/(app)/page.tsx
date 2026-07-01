@@ -41,7 +41,7 @@ export default async function HomePage() {
         description="Open the apps and tools you have access to."
       />
 
-      <div className="mb-6">
+      <div className="mb-4">
         <RevenueSummaryCard stats={revenueStats} />
       </div>
 
