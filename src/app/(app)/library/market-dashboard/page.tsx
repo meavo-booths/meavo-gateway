@@ -1,3 +1,5 @@
+import { LibrarySection } from "@/components/library-section";
+import { LibraryUploadModal } from "@/components/library-upload-modal";
 import { MarketDashboardPanel } from "@/components/market-dashboard-panel";
 import { prisma } from "@/lib/prisma";
 
@@ -21,18 +23,24 @@ export default async function MarketDashboardPage() {
     : null;
 
   return (
-    <MarketDashboardPanel
-      slug={SLUG}
-      hasFile={hasFile}
-      uploadMeta={
-        hasFile
-          ? {
-              fileName: asset.fileName,
-              updatedAt: asset.updatedAt.toISOString(),
-              uploadedByLabel,
-            }
-          : null
+    <LibrarySection
+      toolbar={
+        <LibraryUploadModal
+          slug={SLUG}
+          hasFile={hasFile}
+          uploadMeta={
+            hasFile
+              ? {
+                  fileName: asset.fileName,
+                  updatedAt: asset.updatedAt.toISOString(),
+                  uploadedByLabel,
+                }
+              : null
+          }
+        />
       }
-    />
+    >
+      <MarketDashboardPanel slug={SLUG} hasFile={hasFile} />
+    </LibrarySection>
   );
 }

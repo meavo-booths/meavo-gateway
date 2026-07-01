@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { LibraryNav } from "@/components/library-nav";
 import { PageHeader } from "@/components/ui";
 
 export default async function LibraryLayout({ children }: { children: React.ReactNode }) {
@@ -13,7 +12,6 @@ export default async function LibraryLayout({ children }: { children: React.Reac
         title="Library"
         description="Shared dashboards and reference materials for the team."
       />
-      <LibraryNav />
       {children}
     </div>
   );
