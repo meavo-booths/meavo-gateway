@@ -67,7 +67,7 @@ export default async function ProfilePage() {
     : null;
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <PageHeader
         title="Profile"
         description={
