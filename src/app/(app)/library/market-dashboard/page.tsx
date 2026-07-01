@@ -24,7 +24,7 @@ export default async function MarketDashboardPage() {
 
   return (
     <LibrarySection
-      toolbar={
+      actions={
         <LibraryUploadModal
           slug={SLUG}
           hasFile={hasFile}

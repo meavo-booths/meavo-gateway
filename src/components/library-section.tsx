@@ -1,16 +1,22 @@
 import { ReactNode } from "react";
 import { LibraryNav } from "@/components/library-nav";
+import { PageHeader } from "@/components/ui";
 
 export function LibrarySection({
-  toolbar,
+  actions,
   children,
 }: {
-  toolbar?: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="space-y-6">
-      {toolbar ? <div className="flex justify-end">{toolbar}</div> : null}
+      <PageHeader
+        title="Library"
+        description="Shared dashboards and reference materials for the team."
+      >
+        {actions}
+      </PageHeader>
       <LibraryNav />
       {children}
     </div>
