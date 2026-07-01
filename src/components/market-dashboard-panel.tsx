@@ -11,7 +11,7 @@ export function MarketDashboardPanel({ slug, hasFile }: Props) {
       <iframe
         src={`/api/library/assets/${slug}/view`}
         title="Market Dashboard"
-        className="h-[min(80vh,900px)] w-full rounded-lg border border-slate-200 bg-white"
+        className="h-[min(calc(80vh+200px),1100px)] w-full rounded-lg border border-slate-200 bg-white"
         sandbox="allow-scripts allow-same-origin"
       />
     );
