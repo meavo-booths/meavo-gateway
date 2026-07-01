@@ -37,6 +37,8 @@ export async function buildTemplateContextValues({
       values["company.eori"] = profile.eori;
       values["company.manager"] = profile.manager;
       values["company.managerBg"] = profile.managerBg;
+      values["company.extraTaxFtePercent"] = profile.extraTaxFtePercent.toString();
+      values["company.extraTaxFreelancerPercent"] = profile.extraTaxFreelancerPercent.toString();
     }
   }
 
@@ -81,6 +83,7 @@ export async function buildTemplateContextValues({
         values["employee.providerCompanyAddressBg"] = employee.providerCompanyAddressBg;
         values["employee.providerCompanyRegNumber"] = employee.providerCompanyRegNumber;
         values["employee.providerCompanyVatNumber"] = employee.providerCompanyVatNumber;
+        values["employee.yearlySalary"] = employee.yearlySalary?.toString() ?? "";
       }
     }
   }

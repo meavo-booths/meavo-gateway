@@ -1,26 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   deleteEmployeeDocument,
   endEmployeeContract,
   hireEmployee,
   updateEmployee,
+  updateEmployeeSalary,
   uploadEmployeeDocument,
 } from "@/app/actions/hr";
+import { HR_COMPANY_OPTIONS, HR_CONTRACT_OPTIONS } from "@/components/hr-filters";
 import {
   contractLabel,
   employeeTypeLabel,
   isActiveEmployee,
 } from "@/lib/hr-employee";
+import { formatSalaryEur } from "@/lib/salary";
 import { Button, Card, Input, Select } from "@/components/ui";
 
 type HrDocument = {
   id: string;
   fileName: string;
   createdAt: string;
+};
+
+type HrSalaryHistoryRow = {
+  id: string;
+  yearlySalary: string;
+  effectiveFrom: string;
+  note: string;
+  changedByLabel: string;
 };
 
 type HrEmployee = {
@@ -30,6 +40,8 @@ type HrEmployee = {
   startDate: string;
   endDate: string | null;
   role: string;
+  yearlySalary: string | null;
+  salaryHistory: HrSalaryHistoryRow[];
   documents: HrDocument[];
 };
 
@@ -41,15 +53,9 @@ export type HrUserRow = {
   employee: HrEmployee | null;
 };
 
-const COMPANY_OPTIONS = [
-  { value: "MEAVO", label: "MEAVO" },
-  { value: "OA", label: "OA" },
-];
-
-const CONTRACT_OPTIONS = [
-  { value: "FTE", label: "FTE" },
-  { value: "FREELANCE", label: "Freelance" },
-];
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function Modal({
   title,
@@ -72,7 +78,7 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${wide ? "max-w-lg" : "max-w-sm"}`}
+        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${wide ? "max-w-2xl" : "max-w-sm"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
@@ -108,10 +114,12 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [hireError, setHireError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [salaryError, setSalaryError] = useState<string | null>(null);
   const [endError, setEndError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [hirePending, startHireTransition] = useTransition();
   const [editPending, startEditTransition] = useTransition();
+  const [salaryPending, startSalaryTransition] = useTransition();
   const [endPending, startEndTransition] = useTransition();
   const [uploadPending, startUploadTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
@@ -228,10 +236,19 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
           }}
         >
           <input type="hidden" name="userId" value={user.id} />
-          <Select label="Company" name="company" required options={COMPANY_OPTIONS} />
-          <Select label="Contract" name="contract" required options={CONTRACT_OPTIONS} />
+          <Select label="Company" name="company" required options={HR_COMPANY_OPTIONS} />
+          <Select label="Contract" name="contract" required options={HR_CONTRACT_OPTIONS} />
           <Input label="Starting date" name="startDate" type="date" required />
           <Input label="Role" name="role" required placeholder="e.g. Software Engineer" />
+          <Input
+            label="Yearly salary (EUR)"
+            name="yearlySalary"
+            type="number"
+            min={0}
+            step="0.01"
+            required
+            placeholder="e.g. 36000"
+          />
           {hireError && <p className="text-sm text-red-600">{hireError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setHireOpen(false)}>
@@ -251,59 +268,143 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
           onClose={() => setEditOpen(false)}
           wide
         >
-          <form
-            className="space-y-4"
-            action={(formData) => {
-              setEditError(null);
-              startEditTransition(async () => {
-                const result = await updateEmployee(formData);
-                if (result.error) {
-                  setEditError(result.error);
-                } else {
-                  setEditOpen(false);
-                }
-              });
-            }}
-          >
-            <input type="hidden" name="employeeId" value={user.employee.id} />
-            <Select
-              label="Company"
-              name="company"
-              required
-              defaultValue={user.employee.company}
-              options={COMPANY_OPTIONS}
-            />
-            <Select
-              label="Contract"
-              name="contract"
-              required
-              defaultValue={user.employee.contract}
-              options={CONTRACT_OPTIONS}
-            />
-            <Input
-              label="Starting date"
-              name="startDate"
-              type="date"
-              required
-              defaultValue={toDateInputValue(user.employee.startDate)}
-            />
-            <Input
-              label="Role"
-              name="role"
-              required
-              defaultValue={user.employee.role}
-              placeholder="e.g. Software Engineer"
-            />
-            {editError && <p className="text-sm text-red-600">{editError}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={editPending}>
-                {editPending ? "Saving…" : "Save changes"}
-              </Button>
+          <div className="space-y-6">
+            <form
+              className="space-y-4"
+              action={(formData) => {
+                setEditError(null);
+                startEditTransition(async () => {
+                  const result = await updateEmployee(formData);
+                  if (result.error) {
+                    setEditError(result.error);
+                  } else {
+                    setEditOpen(false);
+                  }
+                });
+              }}
+            >
+              <input type="hidden" name="employeeId" value={user.employee.id} />
+              <Select
+                label="Company"
+                name="company"
+                required
+                defaultValue={user.employee.company}
+                options={HR_COMPANY_OPTIONS}
+              />
+              <Select
+                label="Contract"
+                name="contract"
+                required
+                defaultValue={user.employee.contract}
+                options={HR_CONTRACT_OPTIONS}
+              />
+              <Input
+                label="Starting date"
+                name="startDate"
+                type="date"
+                required
+                defaultValue={toDateInputValue(user.employee.startDate)}
+              />
+              <Input
+                label="Role"
+                name="role"
+                required
+                defaultValue={user.employee.role}
+                placeholder="e.g. Software Engineer"
+              />
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editPending}>
+                  {editPending ? "Saving…" : "Save contract details"}
+                </Button>
+              </div>
+            </form>
+
+            <div className="border-t border-slate-100 pt-6">
+              <h4 className="text-sm font-semibold text-slate-900">Salary</h4>
+              <p className="mt-1 text-sm text-slate-500">
+                Current yearly salary:{" "}
+                <span className="font-medium text-slate-700">
+                  {formatSalaryEur(user.employee.yearlySalary)}
+                </span>
+              </p>
+              <form
+                className="mt-4 space-y-4"
+                action={(formData) => {
+                  setSalaryError(null);
+                  startSalaryTransition(async () => {
+                    const result = await updateEmployeeSalary(formData);
+                    if (result.error) {
+                      setSalaryError(result.error);
+                    } else {
+                      setEditOpen(false);
+                    }
+                  });
+                }}
+              >
+                <input type="hidden" name="employeeId" value={user.employee.id} />
+                <Input
+                  label="Yearly salary (EUR)"
+                  name="yearlySalary"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  required
+                  defaultValue={user.employee.yearlySalary ?? ""}
+                />
+                <Input
+                  label="Effective from"
+                  name="effectiveFrom"
+                  type="date"
+                  required
+                  defaultValue={todayInputValue()}
+                />
+                <Input
+                  label="Note (optional)"
+                  name="salaryNote"
+                  placeholder="Reason for change"
+                />
+                {salaryError && <p className="text-sm text-red-600">{salaryError}</p>}
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={salaryPending}>
+                    {salaryPending ? "Saving…" : "Update salary"}
+                  </Button>
+                </div>
+              </form>
+
+              {user.employee.salaryHistory.length > 0 ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500">
+                        <th className="py-2 pr-4 font-medium">Effective from</th>
+                        <th className="py-2 pr-4 font-medium">Yearly</th>
+                        <th className="py-2 pr-4 font-medium">Changed by</th>
+                        <th className="py-2 font-medium">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {user.employee.salaryHistory.map((entry) => (
+                        <tr key={entry.id} className="border-b border-slate-100">
+                          <td className="py-2 pr-4 text-slate-700">
+                            {formatDate(entry.effectiveFrom)}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-700">
+                            {formatSalaryEur(entry.yearlySalary)}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-600">{entry.changedByLabel}</td>
+                          <td className="py-2 text-slate-600">{entry.note || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
-          </form>
+          </div>
         </Modal>
       )}
 
@@ -394,204 +495,6 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
         </form>
       </Modal>
     </>
-  );
-}
-
-function FilterCheckboxGroup({
-  legend,
-  name,
-  options,
-  selected,
-}: {
-  legend: string;
-  name: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-}) {
-  return (
-    <fieldset>
-      <legend className="text-sm font-medium text-slate-700">{legend}</legend>
-      <div className="mt-2 space-y-2">
-        {options.map((option) => (
-          <label key={option.value} className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              name={name}
-              value={option.value}
-              defaultChecked={selected.includes(option.value)}
-              className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-            />
-            <span>{option.label}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function FilterCheckboxDropdown({
-  legend,
-  name,
-  options,
-  selected,
-}: {
-  legend: string;
-  name: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLFieldSetElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const selectedLabels = options
-    .filter((option) => selected.includes(option.value))
-    .map((option) => option.label);
-  const summary =
-    selected.length === 0
-      ? "All teams"
-      : selected.length === 1
-        ? selectedLabels[0]
-        : `${selected.length} teams`;
-
-  return (
-    <fieldset ref={containerRef} className="relative">
-      <legend className="text-sm font-medium text-slate-700">{legend}</legend>
-      {options.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">No teams yet</p>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            aria-haspopup="listbox"
-            className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-          >
-            <span className="truncate">{summary}</span>
-            <span className="ml-2 shrink-0 text-slate-400" aria-hidden>
-              {open ? "▴" : "▾"}
-            </span>
-          </button>
-          <div
-            className={
-              open
-                ? "absolute z-20 mt-1 max-h-60 w-full min-w-[12rem] overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
-                : "h-0 overflow-hidden"
-            }
-          >
-            {options.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  name={name}
-                  value={option.value}
-                  defaultChecked={selected.includes(option.value)}
-                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
-    </fieldset>
-  );
-}
-
-export function HrFilters({
-  userTypes,
-  statuses,
-  companies,
-  contracts,
-  teams,
-  teamOptions,
-}: {
-  userTypes: string[];
-  statuses: string[];
-  companies: string[];
-  contracts: string[];
-  teams: string[];
-  teamOptions: { value: string; label: string }[];
-}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <Card>
-      <form
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-start"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget);
-          const params = new URLSearchParams();
-
-          for (const key of ["userType", "status", "company", "contract", "team"]) {
-            const values = formData.getAll(key).map((value) => String(value));
-            if (values.length > 0) params.set(key, values.join(","));
-          }
-
-          startTransition(() => {
-            router.push(params.size ? `/hr/employees?${params.toString()}` : "/hr/employees");
-          });
-        }}
-      >
-        <FilterCheckboxGroup
-          legend="User type"
-          name="userType"
-          selected={userTypes}
-          options={[
-            { value: "user", label: "Users" },
-            { value: "employee", label: "Employees" },
-          ]}
-        />
-        <FilterCheckboxGroup
-          legend="Status"
-          name="status"
-          selected={statuses}
-          options={[
-            { value: "active", label: "Active" },
-            { value: "past", label: "Past" },
-          ]}
-        />
-        <FilterCheckboxGroup
-          legend="Company"
-          name="company"
-          selected={companies}
-          options={COMPANY_OPTIONS}
-        />
-        <FilterCheckboxGroup
-          legend="Contract"
-          name="contract"
-          selected={contracts}
-          options={CONTRACT_OPTIONS}
-        />
-        <FilterCheckboxDropdown
-          legend="Team"
-          name="team"
-          selected={teams}
-          options={teamOptions}
-        />
-        <div className="flex items-end sm:col-span-2 lg:col-span-3 xl:col-span-1">
-          <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-            {pending ? "Filtering…" : "Apply filters"}
-          </Button>
-        </div>
-      </form>
-    </Card>
   );
 }
 

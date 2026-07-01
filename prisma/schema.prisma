@@ -34,6 +34,8 @@ model CompanyProfile {
   eori          String   @default("")
   manager       String   @default("")
   managerBg     String   @default("")
+  extraTaxFtePercent        Decimal @default(0) @db.Decimal(5, 2)
+  extraTaxFreelancerPercent Decimal @default(0) @db.Decimal(5, 2)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -80,6 +82,7 @@ model User {
   generatedDocuments           GeneratedDocument[]       @relation("GeneratedDocumentCreator")
   generatedDocumentsAsSubject  GeneratedDocument[]       @relation("GeneratedDocumentSubject")
   libraryAssetsUploaded      LibraryAsset[]
+  salaryHistoryChanged       EmployeeSalaryHistory[]     @relation("SalaryHistoryChanger")
 }
 
 model Account {
@@ -171,11 +174,28 @@ model Employee {
   providerCompanyAddressBg String     @default("")
   providerCompanyRegNumber String     @default("")
   providerCompanyVatNumber String     @default("")
+  yearlySalary             Decimal?   @db.Decimal(12, 2)
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents EmployeeDocument[]
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents     EmployeeDocument[]
+  salaryHistory EmployeeSalaryHistory[]
+}
+
+model EmployeeSalaryHistory {
+  id            String   @id @default(cuid())
+  employeeId    String
+  yearlySalary  Decimal  @db.Decimal(12, 2)
+  effectiveFrom DateTime @db.Date
+  changedById   String
+  note          String   @default("")
+  createdAt     DateTime @default(now())
+
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  changedBy User     @relation("SalaryHistoryChanger", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, effectiveFrom])
 }
 
 model EmployeeDocument {

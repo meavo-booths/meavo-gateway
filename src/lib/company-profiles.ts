@@ -15,6 +15,8 @@ export type CompanyProfileData = {
   eori: string;
   manager: string;
   managerBg: string;
+  extraTaxFtePercent: string;
+  extraTaxFreelancerPercent: string;
 };
 
 export async function ensureCompanyProfiles(): Promise<CompanyProfileData[]> {
@@ -43,5 +45,7 @@ export async function ensureCompanyProfiles(): Promise<CompanyProfileData[]> {
     eori: profile.eori,
     manager: profile.manager,
     managerBg: profile.managerBg,
+    extraTaxFtePercent: profile.extraTaxFtePercent.toString(),
+    extraTaxFreelancerPercent: profile.extraTaxFreelancerPercent.toString(),
   }));
 }

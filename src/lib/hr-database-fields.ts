@@ -25,6 +25,8 @@ const COMPANY_PROFILE_FIELDS: HrDatabaseField[] = [
   { name: "company.eori", label: "EORI", type: "String" },
   { name: "company.manager", label: "Manager", type: "String" },
   { name: "company.managerBg", label: "МОЛ", type: "String", notes: "DB: managerBg" },
+  { name: "company.extraTaxFtePercent", label: "Extra tax per FTE (%)", type: "Decimal" },
+  { name: "company.extraTaxFreelancerPercent", label: "Extra tax per Freelancer (%)", type: "Decimal" },
 ];
 
 const EMPLOYEE_FIELDS: HrDatabaseField[] = TEMPLATE_PLACEHOLDER_OPTIONS.filter(
@@ -53,7 +55,8 @@ export const HR_DATABASE_SECTIONS: HrDatabaseSection[] = [
   },
   {
     title: "Employee fields",
-    description: "On Employee, linked to User. Use {{employee.fieldName}} in templates. Edited on Profile.",
+    description:
+      "On Employee, linked to User. Use {{employee.fieldName}} in templates. Personal fields on Profile; salary on HR Employees.",
     table: "Employee",
     fields: EMPLOYEE_FIELDS,
   },

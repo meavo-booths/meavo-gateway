@@ -15,6 +15,8 @@ export const TEMPLATE_PLACEHOLDER_OPTIONS: TemplatePlaceholderOption[] = [
   { path: "company.eori", label: "EORI", group: "company" },
   { path: "company.manager", label: "Manager", group: "company" },
   { path: "company.managerBg", label: "МОЛ", group: "company" },
+  { path: "company.extraTaxFtePercent", label: "Extra tax per FTE (%)", group: "company" },
+  { path: "company.extraTaxFreelancerPercent", label: "Extra tax per Freelancer (%)", group: "company" },
   { path: "employee.role", label: "Role", group: "employee" },
   { path: "employee.contract", label: "Contract type", group: "employee" },
   { path: "employee.company", label: "Employer company", group: "employee" },
@@ -30,6 +32,7 @@ export const TEMPLATE_PLACEHOLDER_OPTIONS: TemplatePlaceholderOption[] = [
   { path: "employee.providerCompanyAddressBg", label: "Адрес на фирма", group: "employee" },
   { path: "employee.providerCompanyRegNumber", label: "Provider company Reg Number", group: "employee" },
   { path: "employee.providerCompanyVatNumber", label: "Provider company VAT Number", group: "employee" },
+  { path: "employee.yearlySalary", label: "Yearly salary (EUR)", group: "employee" },
   { path: "user.name", label: "Display name", group: "user" },
   { path: "user.email", label: "Email", group: "user" },
 ];

@@ -68,6 +68,26 @@ function HrCompanyProfileCard({ profile }: { profile: CompanyProfileData }) {
             <Input label="Manager" name="manager" defaultValue={profile.manager} />
             <Input label="МОЛ" name="managerBg" defaultValue={profile.managerBg} />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Extra tax per FTE (% of salary)"
+              name="extraTaxFtePercent"
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              defaultValue={profile.extraTaxFtePercent}
+            />
+            <Input
+              label="Extra tax per Freelancer (% of salary)"
+              name="extraTaxFreelancerPercent"
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              defaultValue={profile.extraTaxFreelancerPercent}
+            />
+          </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel

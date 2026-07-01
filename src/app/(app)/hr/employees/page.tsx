@@ -1,6 +1,7 @@
 import { buildHrUserWhere, parseHrFilters } from "@/lib/hr-filters";
 import { prisma } from "@/lib/prisma";
-import { HrFilters, HrUserList, type HrUserRow } from "@/components/hr-user-list";
+import { HrFilters } from "@/components/hr-filters";
+import { HrUserList, type HrUserRow } from "@/components/hr-user-list";
 
 export default async function HrEmployeesPage({
   searchParams,
@@ -43,6 +44,17 @@ export default async function HrEmployeesPage({
           startDate: true,
           endDate: true,
           role: true,
+          yearlySalary: true,
+          salaryHistory: {
+            orderBy: { effectiveFrom: "desc" },
+            select: {
+              id: true,
+              yearlySalary: true,
+              effectiveFrom: true,
+              note: true,
+              changedBy: { select: { name: true, email: true } },
+            },
+          },
           documents: {
             orderBy: { createdAt: "desc" },
             select: { id: true, fileName: true, createdAt: true },
@@ -65,6 +77,14 @@ export default async function HrEmployeesPage({
           startDate: user.employee.startDate.toISOString(),
           endDate: user.employee.endDate?.toISOString() ?? null,
           role: user.employee.role,
+          yearlySalary: user.employee.yearlySalary?.toString() ?? null,
+          salaryHistory: user.employee.salaryHistory.map((entry) => ({
+            id: entry.id,
+            yearlySalary: entry.yearlySalary.toString(),
+            effectiveFrom: entry.effectiveFrom.toISOString(),
+            note: entry.note,
+            changedByLabel: entry.changedBy.name || entry.changedBy.email,
+          })),
           documents: user.employee.documents.map((doc) => ({
             id: doc.id,
             fileName: doc.fileName,
@@ -77,6 +97,7 @@ export default async function HrEmployeesPage({
   return (
     <div>
       <HrFilters
+        basePath="/hr/employees"
         userTypes={filters.userTypes}
         statuses={filters.statuses}
         companies={filters.companies}

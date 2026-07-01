@@ -56,6 +56,7 @@ export function Input({
   required,
   min,
   max,
+  step,
   placeholder,
   autoComplete,
 }: {
@@ -66,6 +67,7 @@ export function Input({
   required?: boolean;
   min?: number;
   max?: number;
+  step?: string | number;
   placeholder?: string;
   autoComplete?: string;
 }) {
@@ -79,6 +81,7 @@ export function Input({
         required={required}
         min={min}
         max={max}
+        step={step}
         placeholder={placeholder}
         autoComplete={autoComplete}
         className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"

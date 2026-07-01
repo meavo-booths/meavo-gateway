@@ -1,11 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Company, ContractType } from "@prisma/client";
+import { Company, ContractType, Prisma } from "@prisma/client";
 import { del, put } from "@vercel/blob";
 import { requireHr } from "@/lib/hr-auth";
 import { prisma } from "@/lib/prisma";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import {
+  decimalToNumber,
+  parseTaxPercent,
+  parseYearlySalary,
+  salaryEffectiveOnDate,
+} from "@/lib/salary";
+import { startOfUtcDay } from "@/lib/hr-employee";
+
+function toSalaryDecimal(amount: number): Prisma.Decimal {
+  return new Prisma.Decimal(amount.toFixed(2));
+}
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -28,22 +39,41 @@ function parseDate(value: string): Date | null {
 
 function revalidateHrPages() {
   revalidatePath("/hr/employees");
+  revalidatePath("/hr/salaries");
   revalidatePath("/hr/documentation");
   revalidatePath("/hr/database");
   revalidatePath("/profile");
 }
 
+async function syncEmployeeCurrentSalary(employeeId: string) {
+  const history = await prisma.employeeSalaryHistory.findMany({
+    where: { employeeId },
+    orderBy: { effectiveFrom: "asc" },
+    select: { yearlySalary: true, effectiveFrom: true },
+  });
+  const current = salaryEffectiveOnDate(history, new Date());
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: { yearlySalary: current === null ? null : toSalaryDecimal(current) },
+  });
+}
+
 export async function hireEmployee(formData: FormData): Promise<{ error?: string }> {
-  await requireHr();
+  const hrUser = await requireHr();
 
   const userId = formData.get("userId") as string;
   const company = parseCompany(formData.get("company") as string);
   const contract = parseContract(formData.get("contract") as string);
   const startDateRaw = formData.get("startDate") as string;
   const role = (formData.get("role") as string)?.trim();
+  const salaryResult = parseYearlySalary(formData.get("yearlySalary"));
 
   if (!userId || !company || !contract || !startDateRaw || !role) {
     return { error: "All fields are required." };
+  }
+
+  if (!salaryResult.ok) {
+    return { error: salaryResult.error };
   }
 
   const startDate = new Date(startDateRaw);
@@ -56,14 +86,29 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
     return { error: "This user is already an employee." };
   }
 
-  const employee = await prisma.employee.create({
-    data: {
-      userId,
-      company,
-      contract,
-      startDate,
-      role,
-    },
+  const employee = await prisma.$transaction(async (tx) => {
+    const created = await tx.employee.create({
+      data: {
+        userId,
+        company,
+        contract,
+        startDate,
+        role,
+        yearlySalary: toSalaryDecimal(salaryResult.amount),
+      },
+    });
+
+    await tx.employeeSalaryHistory.create({
+      data: {
+        employeeId: created.id,
+        yearlySalary: toSalaryDecimal(salaryResult.amount),
+        effectiveFrom: startOfUtcDay(startDate),
+        changedById: hrUser.id,
+        note: "Initial hire",
+      },
+    });
+
+    return created;
   });
 
   void enqueueNotification({
@@ -110,6 +155,67 @@ export async function updateEmployee(formData: FormData): Promise<{ error?: stri
     data: { company, contract, startDate, role },
   });
 
+  revalidateHrPages();
+  return {};
+}
+
+export async function updateEmployeeSalary(formData: FormData): Promise<{ error?: string }> {
+  const hrUser = await requireHr();
+
+  const employeeId = formData.get("employeeId") as string;
+  const effectiveFromRaw = formData.get("effectiveFrom") as string;
+  const note = trimField(formData.get("salaryNote"));
+  const salaryResult = parseYearlySalary(formData.get("yearlySalary"));
+
+  if (!employeeId || !effectiveFromRaw) {
+    return { error: "Employee and effective date are required." };
+  }
+
+  if (!salaryResult.ok) {
+    return { error: salaryResult.error };
+  }
+
+  const effectiveFrom = parseDate(effectiveFromRaw);
+  if (!effectiveFrom) {
+    return { error: "Invalid effective date." };
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      id: true,
+      salaryHistory: {
+        orderBy: { effectiveFrom: "asc" },
+        select: { yearlySalary: true, effectiveFrom: true, note: true },
+      },
+    },
+  });
+  if (!employee) {
+    return { error: "Employee not found." };
+  }
+
+  const effectiveDay = startOfUtcDay(effectiveFrom).getTime();
+  const duplicate = employee.salaryHistory.some((entry) => {
+    const sameDay = startOfUtcDay(entry.effectiveFrom).getTime() === effectiveDay;
+    const sameAmount =
+      decimalToNumber(entry.yearlySalary) === decimalToNumber(salaryResult.amount);
+    return sameDay && sameAmount && (note === "" || note === entry.note);
+  });
+  if (duplicate) {
+    return {};
+  }
+
+  await prisma.employeeSalaryHistory.create({
+    data: {
+      employeeId,
+      yearlySalary: toSalaryDecimal(salaryResult.amount),
+      effectiveFrom: startOfUtcDay(effectiveFrom),
+      changedById: hrUser.id,
+      note,
+    },
+  });
+
+  await syncEmployeeCurrentSalary(employeeId);
   revalidateHrPages();
   return {};
 }
@@ -228,6 +334,10 @@ export async function updateCompanyProfile(formData: FormData): Promise<void> {
   const company = parseCompany(formData.get("company") as string);
   if (!company) return;
 
+  const fteTax = parseTaxPercent(formData.get("extraTaxFtePercent"));
+  const freelancerTax = parseTaxPercent(formData.get("extraTaxFreelancerPercent"));
+  if (!fteTax.ok || !freelancerTax.ok) return;
+
   const data = {
     legalName: trimField(formData.get("legalName")),
     legalNameBg: trimField(formData.get("legalNameBg")),
@@ -239,6 +349,8 @@ export async function updateCompanyProfile(formData: FormData): Promise<void> {
     eori: trimField(formData.get("eori")),
     manager: trimField(formData.get("manager")),
     managerBg: trimField(formData.get("managerBg")),
+    extraTaxFtePercent: toSalaryDecimal(fteTax.amount),
+    extraTaxFreelancerPercent: toSalaryDecimal(freelancerTax.amount),
   };
 
   await prisma.companyProfile.upsert({
