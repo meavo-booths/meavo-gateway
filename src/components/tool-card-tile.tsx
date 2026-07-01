@@ -10,6 +10,12 @@ function ToolCardStatsLine({ stats }: { stats: ToolCardStats }) {
     return (
       <p className="mt-3 text-sm text-slate-600">
         <span className="font-semibold text-slate-900">{line.value}</span> {line.label}
+        {line.detail && (
+          <>
+            {" — "}
+            <span className="font-semibold text-slate-900">{line.detail}</span>
+          </>
+        )}
       </p>
     );
   }
