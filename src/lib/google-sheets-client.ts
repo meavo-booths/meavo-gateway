@@ -45,7 +45,7 @@ export async function getSheetValues(
   const sheets = await getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${tabName}'!A:Z`,
+    range: `'${tabName}'!A:AB`,
   });
 
   return (response.data.values ?? []) as string[][];

@@ -45,7 +45,7 @@ export function AdminSheetImport({
             <h2 className="text-lg font-semibold text-slate-900">Sheet sync</h2>
             <p className="mt-1 text-sm text-slate-600">
               Imports rows from the configured Google Sheet into the gateway database.
-              The first row is treated as headers; column D (DealID) is the unique row key — the same ID used in Assembly for later matching.
+              The first row is treated as headers; column D (DealID) is the unique row key — the same ID used in Assembly for later matching. Revenue is read from column W, invoice date from column K, and sales rep from column I.
             </p>
           </div>
           <form action={refreshGatewaySheet}>

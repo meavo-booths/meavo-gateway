@@ -96,7 +96,7 @@ Gateway can import rows from a second Google Sheet into `GatewaySheetRecord` (JS
 2. On the gateway Vercel project, set `GOOGLE_SERVICE_ACCOUNT_JSON` (same value as assembly), `GOOGLE_SHEETS_SPREADSHEET_ID`, and `GOOGLE_SHEETS_TAB_NAME`
 3. Deploy so `vercel.json` registers the cron (`/api/cron/import-sheet`, every 30 minutes)
 
-Admins can monitor status and trigger a manual import under **Admin → Sheet import**. Row 1 is headers; column D (DealID) is the unique key — same as `Assembly.dealId` for cross-app matching. Extend `src/lib/sheet-columns.ts` when you add typed fields.
+Admins can monitor status and trigger a manual import under **Admin → Sheet import**. Row 1 is headers; column D (DealID) is the unique key. Revenue (column W), invoice date (column K), and sales rep (column I) power the home page revenue card.
 
 Manual test (after deploy):
 
