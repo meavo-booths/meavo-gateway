@@ -442,11 +442,23 @@ model SubmissionPhoto {
   @@index([submissionId])
 }
 
+// id "default" = assembly app import; "gateway" = gateway sheet import
 model SheetImportState {
   id           String    @id @default("default")
   lastRunAt    DateTime?
   rowCount     Int       @default(0)
   errorMessage String?
+}
+
+model GatewaySheetRecord {
+  id             String   @id @default(cuid())
+  rowKey         String   @unique
+  data           Json
+  lastImportedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([lastImportedAt])
 }
 
 enum NotificationStatus {

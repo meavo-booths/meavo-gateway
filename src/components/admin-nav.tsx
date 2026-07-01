@@ -8,6 +8,7 @@ const tabs = [
   { href: "/admin/teams", label: "Teams" },
   { href: "/admin/tools", label: "Tools" },
   { href: "/admin/notifications", label: "Notifications" },
+  { href: "/admin/sheet-import", label: "Sheet import" },
 ];
 
 export function AdminNav() {

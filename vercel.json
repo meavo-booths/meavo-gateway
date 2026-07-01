@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/weekly-holiday-slack",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/import-sheet",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

@@ -54,6 +54,9 @@ For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db
    - `RESEND_API_KEY` — [Resend](https://resend.com) API key for email notifications
    - `EMAIL_FROM` — e.g. `MEAVO <notifications@meavo.app>` (domain must be verified in Resend)
    - `CRON_SECRET` — protects `/api/cron/*` routes (Vercel Cron)
+   - `GOOGLE_SERVICE_ACCOUNT_JSON` — service account JSON for Google Sheets import (same credential as assembly; share each sheet with its `client_email` as Viewer)
+   - `GOOGLE_SHEETS_SPREADSHEET_ID` — spreadsheet ID for gateway sheet import
+   - `GOOGLE_SHEETS_TAB_NAME` — tab name to import (default `Sheet1`)
    - `SLACK_HOLIDAY_DIGEST_WEBHOOK_URL` — Slack incoming webhook for the weekly holiday digest (see below)
    - `HOLIDAY_DIGEST_TIMEZONE` (optional) — week boundaries and date labels; default `Europe/Sofia`
    - `HOLIDAY_DIGEST_ENABLED` (optional) — set to `false` to disable the weekly Slack digest without removing the cron
@@ -84,6 +87,36 @@ Gateway owns the notification **outbox** and sends email via Resend. Hols and as
 Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway). Admins can enable or disable each event under **Admin → Notifications**.
 
 Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY` on hols or assembly.
+
+## Google Sheets import
+
+Gateway can import rows from a second Google Sheet into `GatewaySheetRecord` (JSON per row). Reuse the **same service account** as assembly:
+
+1. Share the sheet with the service account `client_email` from `GOOGLE_SERVICE_ACCOUNT_JSON` as **Viewer**
+2. On the gateway Vercel project, set `GOOGLE_SERVICE_ACCOUNT_JSON` (same value as assembly), `GOOGLE_SHEETS_SPREADSHEET_ID`, and `GOOGLE_SHEETS_TAB_NAME`
+3. Deploy so `vercel.json` registers the cron (`/api/cron/import-sheet`, every 30 minutes)
+
+Admins can monitor status and trigger a manual import under **Admin → Sheet import**. Row 1 is headers; column D (DealID) is the unique key — same as `Assembly.dealId` for cross-app matching. Extend `src/lib/sheet-columns.ts` when you add typed fields.
+
+Manual test (after deploy):
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://meavo.app/api/cron/import-sheet"
+```
+
+### Database migration (`GatewaySheetRecord`)
+
+Gateway, hols, and assembly share one Neon database. The gateway `prisma/schema.prisma` may be **behind** the assembly repo (fewer questionnaire models). A full `npm run db:push` from gateway can try to **drop** assembly tables — Prisma will warn about data loss. Use the targeted SQL script instead:
+
+```bash
+cd meavo-gateway
+npx prisma db execute --file scripts/add-gateway-sheet-record.sql --schema prisma/schema.prisma
+```
+
+`SheetImportState` already exists (assembly uses id `"default"`; gateway uses `"gateway"`).
+
+If your local schema includes **all** app models and `db:push` shows no destructive changes, `npm run db:push` is also fine.
 
 ## Weekly holiday Slack digest
 
