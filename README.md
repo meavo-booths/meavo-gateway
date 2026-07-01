@@ -53,7 +53,10 @@ For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db
    - `BLOB_READ_WRITE_TOKEN` — Vercel Blob (HR contract PDFs); create in Vercel Storage → Blob
    - `RESEND_API_KEY` — [Resend](https://resend.com) API key for email notifications
    - `EMAIL_FROM` — e.g. `MEAVO <notifications@meavo.app>` (domain must be verified in Resend)
-   - `CRON_SECRET` — protects `/api/cron/process-notifications` (Vercel Cron)
+   - `CRON_SECRET` — protects `/api/cron/*` routes (Vercel Cron)
+   - `SLACK_HOLIDAY_DIGEST_WEBHOOK_URL` — Slack incoming webhook for the weekly holiday digest (see below)
+   - `HOLIDAY_DIGEST_TIMEZONE` (optional) — week boundaries and date labels; default `Europe/Sofia`
+   - `HOLIDAY_DIGEST_ENABLED` (optional) — set to `false` to disable the weekly Slack digest without removing the cron
    - `EMAIL_DEV_OVERRIDE` (optional) — redirect all notification emails in development
 4. Deploy, then initialize the production database:
 
@@ -81,6 +84,23 @@ Gateway owns the notification **outbox** and sends email via Resend. Hols and as
 Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway). Admins can enable or disable each event under **Admin → Notifications**.
 
 Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY` on hols or assembly.
+
+## Weekly holiday Slack digest
+
+Every **Monday at 07:00 UTC** (~09:00 Sofia in winter), gateway posts approved leave for the current calendar week to a Slack channel.
+
+1. In Slack: **Apps → Incoming Webhooks** (or create a Slack app with an incoming webhook) and copy the webhook URL for your target channel.
+2. Set `SLACK_HOLIDAY_DIGEST_WEBHOOK_URL` on the gateway Vercel project.
+3. Deploy so `vercel.json` registers the cron (`/api/cron/weekly-holiday-slack`).
+
+Manual test (after deploy):
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://meavo.app/api/cron/weekly-holiday-slack"
+```
+
+The message lists **approved** vacation requests that overlap the current week (Mon–Sun in `HOLIDAY_DIGEST_TIMEZONE`), with employee name, team, dates, and duration.
 
 After adding notification tables, run the targeted SQL script (safe when gateway schema lags assembly/hols):
 
