@@ -74,15 +74,17 @@ function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${wide ? "max-w-2xl" : "max-w-sm"}`}
+        className={`w-full max-h-[85vh] rounded-xl border border-slate-200 bg-white p-4 shadow-lg sm:p-6 ${wide ? "max-w-2xl" : "max-w-sm"} overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <div className="mt-4">{children}</div>
+        <div className="mt-4 max-h-[calc(85vh-7rem)] overflow-y-auto overscroll-contain pr-1">
+          {children}
+        </div>
       </div>
     </div>
   );
