@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const tabs = [{ href: "/library/market-dashboard", label: "Market Dashboard" }];
+const tabs = [
+  { href: "/library/market-dashboard", label: "Market Dashboard" },
+  { href: "/library/culture-hub", label: "Culture Hub" },
+];
 
 export function LibraryNav() {
   const pathname = usePathname();

@@ -13,7 +13,7 @@ export function LibrarySection({
     <div className="space-y-6">
       <PageHeader
         title="Library"
-        description="Shared dashboards and reference materials for the team."
+        description="Shared dashboards, culture reference, and team materials."
       >
         {actions}
       </PageHeader>
