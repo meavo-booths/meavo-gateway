@@ -32,7 +32,7 @@ export function CultureHubPanel() {
             key={column.heading}
             className={columnIndex === 0 ? "border-b border-slate-200 lg:border-b-0 lg:border-r" : ""}
           >
-            <div className="bg-[#F1D4E5] px-4 py-3 sm:px-5">
+            <div className="bg-[#EEDCDC] px-4 py-3 sm:px-5">
               <h3 className="text-sm font-semibold text-slate-900">{column.heading}</h3>
             </div>
             <div className="divide-y divide-slate-200">
