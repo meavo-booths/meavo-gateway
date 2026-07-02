@@ -70,8 +70,11 @@ function extractTypedFields(record: Record<string, string>, row: string[]) {
   const revenueEur = parseRevenueEur(
     fieldValue(record, SHEET_FIELD_KEYS.revenueEur, SHEET_COLUMNS.revenueEur, row)
   );
+  const market = fieldValue(record, SHEET_FIELD_KEYS.market, -1, row) || null;
+  const clientType = fieldValue(record, SHEET_FIELD_KEYS.clientType, -1, row) || null;
+  const newVsRepeat = fieldValue(record, SHEET_FIELD_KEYS.newVsRepeat, -1, row) || null;
 
-  return { salesRep, invoiceDate, revenueEur };
+  return { salesRep, invoiceDate, revenueEur, market, clientType, newVsRepeat };
 }
 
 function resolveRowKey(record: Record<string, string>, row: string[]): string | null {
@@ -120,7 +123,8 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
       const rowKey = resolveRowKey(data, row);
       if (!rowKey) continue;
 
-      const { salesRep, invoiceDate, revenueEur } = extractTypedFields(data, row);
+      const { salesRep, invoiceDate, revenueEur, market, clientType, newVsRepeat } =
+        extractTypedFields(data, row);
 
       await prisma.gatewaySheetRecord.upsert({
         where: { rowKey },
@@ -130,6 +134,9 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
           salesRep,
           invoiceDate,
           revenueEur,
+          market,
+          clientType,
+          newVsRepeat,
           lastImportedAt: new Date(),
         },
         update: {
@@ -137,6 +144,9 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
           salesRep,
           invoiceDate,
           revenueEur,
+          market,
+          clientType,
+          newVsRepeat,
           lastImportedAt: new Date(),
         },
       });

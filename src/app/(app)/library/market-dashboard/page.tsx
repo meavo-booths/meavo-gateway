@@ -9,7 +9,7 @@ export default async function MarketDashboardPage() {
   const asset = await prisma.libraryAsset.upsert({
     where: { slug: SLUG },
     update: {},
-    create: { slug: SLUG, title: "Market Dashboard" },
+    create: { slug: SLUG, title: "Marketing" },
     include: {
       uploadedBy: {
         select: { name: true, email: true },

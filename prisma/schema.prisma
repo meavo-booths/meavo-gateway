@@ -457,12 +457,18 @@ model GatewaySheetRecord {
   invoiceDate    DateTime?
   revenueEur     Decimal?  @db.Decimal(12, 2)
   salesRep       String?
+  market         String?
+  clientType     String?
+  newVsRepeat    String?
   lastImportedAt DateTime  @default(now())
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([lastImportedAt])
   @@index([invoiceDate])
+  @@index([market])
+  @@index([clientType])
+  @@index([newVsRepeat])
 }
 
 enum NotificationStatus {

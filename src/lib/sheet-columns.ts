@@ -7,6 +7,9 @@ export const SHEET_FIELD_KEYS = {
   salesRep: "sales_rep",
   invoiceDate: "inv_po_date",
   revenueEur: "invoice_amount_excl_vat",
+  market: "market",
+  clientType: "client_type",
+  newVsRepeat: "new_vs_repeat_client",
 } as const;
 
 /**
