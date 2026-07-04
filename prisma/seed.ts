@@ -114,6 +114,42 @@ async function main() {
     },
   });
 
+  const salesCard = await prisma.toolCard.upsert({
+    where: { id: "seed-sales-tool" },
+    update: {
+      name: "Sales",
+      description: "Generate quotes and convert them into won deals.",
+      url: "https://sales.meavo.app",
+      iconKey: "handover",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "sales",
+      sortOrder: 2,
+      isActive: true,
+    },
+    create: {
+      id: "seed-sales-tool",
+      name: "Sales",
+      description: "Generate quotes and convert them into won deals.",
+      url: "https://sales.meavo.app",
+      iconKey: "handover",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "sales",
+      sortOrder: 2,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: salesCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: salesCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -128,7 +164,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker and Assembly cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly and Sales cards.`);
 }
 
 main()

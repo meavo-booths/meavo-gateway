@@ -75,9 +75,30 @@ async function getHolsStats(): Promise<ToolCardStats> {
   };
 }
 
+async function getSalesStats(): Promise<ToolCardStats> {
+  // Raw query: the Deal table is owned by the sales app and intentionally
+  // absent from gateway's Prisma schema (which is a subset of the shared DB).
+  const rows = await prisma.$queryRaw<{ open: bigint; won: bigint }[]>`
+    SELECT
+      COUNT(*) FILTER (WHERE "stage" = 'QUOTE') AS open,
+      COUNT(*) FILTER (WHERE "stage" = 'WON' AND "wonAt" >= date_trunc('month', now())) AS won
+    FROM "Deal"
+  `;
+  const open = Number(rows[0]?.open ?? 0);
+  const won = Number(rows[0]?.won ?? 0);
+
+  return {
+    lines: [
+      { label: "Open quotes", value: String(open) },
+      { label: "Won this month", value: String(won) },
+    ],
+  };
+}
+
 const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   assembly: getAssemblyStats,
   hols: getHolsStats,
+  sales: getSalesStats,
 };
 
 export async function getToolCardStats(

@@ -1,4 +1,4 @@
-export type LinkedAppKey = "hols" | "assembly";
+export type LinkedAppKey = "hols" | "assembly" | "sales";
 
 export type AppAccessCardDefinition = {
   key: LinkedAppKey;
@@ -21,6 +21,12 @@ export const APP_ACCESS_CARDS: Record<LinkedAppKey, AppAccessCardDefinition> = {
     domain: "assembly.meavo.app",
     defaultCardId: "seed-assembly-tool",
   },
+  sales: {
+    key: "sales",
+    label: "Sales",
+    domain: "sales.meavo.app",
+    defaultCardId: "seed-sales-tool",
+  },
 };
 
 export const LINKED_APP_OPTIONS = Object.values(APP_ACCESS_CARDS).map((app) => ({
@@ -29,7 +35,7 @@ export const LINKED_APP_OPTIONS = Object.values(APP_ACCESS_CARDS).map((app) => (
 }));
 
 export function isLinkedAppKey(value: string | null | undefined): value is LinkedAppKey {
-  return value === "hols" || value === "assembly";
+  return value === "hols" || value === "assembly" || value === "sales";
 }
 
 export function getAppAccessDefinition(key: string | null | undefined): AppAccessCardDefinition | null {
