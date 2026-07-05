@@ -6,7 +6,6 @@ import {
 } from "@meavo/navigation/server";
 import { signOutAction } from "@/app/actions/auth";
 import { auth } from "@/lib/auth";
-import { hasHrAccess, isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const MEAVO_APP_KEY = isMeavoAppKey(process.env.MEAVO_APP_KEY)
@@ -27,10 +26,8 @@ export async function Nav() {
   const session = await auth();
   if (!session?.user) return null;
 
-  const [admin, hr] = await Promise.all([
-    isAdmin(session.user.id),
-    hasHrAccess(session.user.id),
-  ]);
+  const admin = session.user.systemRole === "ADMIN";
+  const hr = session.user.hrAccess;
 
   const visibleLinks = links.filter((link) => {
     if (link.adminOnly && !admin) return false;

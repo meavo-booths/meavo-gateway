@@ -12,7 +12,7 @@ export function MarketDashboardPanel({ slug, hasFile }: Props) {
         src={`/api/library/assets/${slug}/view`}
         title="Marketing"
         className="h-[min(calc(80vh+200px),1100px)] w-full rounded-lg border border-slate-200 bg-white"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts"
       />
     );
   }

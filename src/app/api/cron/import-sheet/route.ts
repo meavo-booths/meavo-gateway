@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const result = await importGatewaySheet();
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Import failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Gateway sheet import cron failed:", error);
+    return NextResponse.json({ error: "Import failed" }, { status: 500 });
   }
 }

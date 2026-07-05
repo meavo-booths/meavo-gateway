@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       timeZone,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Weekly holiday digest failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Weekly holiday digest cron failed:", error);
+    return NextResponse.json({ error: "Weekly holiday digest failed" }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ import {
   isActiveEmployee,
 } from "@/lib/hr-employee";
 import { formatSalaryEur } from "@/lib/salary";
+import { Modal } from "@/components/modal";
 import { Button, Card, Input, Select } from "@/components/ui";
 
 type HrDocument = {
@@ -57,7 +58,7 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function Modal({
+function HrModal({
   title,
   open,
   onClose,
@@ -70,23 +71,17 @@ function Modal({
   wide?: boolean;
   children: React.ReactNode;
 }) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
-      onClick={onClose}
+    <Modal
+      title={title}
+      open={open}
+      onClose={onClose}
+      maxWidthClassName={wide ? "max-w-2xl" : "max-w-sm"}
+      panelClassName="max-h-[85vh] overflow-hidden p-4 sm:p-6"
+      bodyClassName="mt-4 max-h-[calc(85vh-7rem)] overflow-y-auto overscroll-contain pr-1"
     >
-      <div
-        className={`w-full max-h-[85vh] rounded-xl border border-slate-200 bg-white p-4 shadow-lg sm:p-6 ${wide ? "max-w-2xl" : "max-w-sm"} overflow-hidden`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <div className="mt-4 max-h-[calc(85vh-7rem)] overflow-y-auto overscroll-contain pr-1">
-          {children}
-        </div>
-      </div>
-    </div>
+      {children}
+    </Modal>
   );
 }
 
@@ -183,11 +178,14 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
                         type="button"
                         className="text-xs text-red-600 hover:underline disabled:opacity-50"
                         disabled={deletePending}
-                        onClick={() =>
+                        onClick={() => {
+                          if (!window.confirm(`Delete document "${doc.fileName}"? This cannot be undone.`)) {
+                            return;
+                          }
                           startDeleteTransition(async () => {
                             await deleteEmployeeDocument(doc.id);
-                          })
-                        }
+                          });
+                        }}
                       >
                         Remove
                       </button>
@@ -222,7 +220,7 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
         </div>
       </li>
 
-      <Modal title={`Hire — ${displayName}`} open={hireOpen} onClose={() => setHireOpen(false)} wide>
+      <HrModal title={`Hire — ${displayName}`} open={hireOpen} onClose={() => setHireOpen(false)} wide>
         <form
           className="space-y-4"
           action={(formData) => {
@@ -261,10 +259,10 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
             </Button>
           </div>
         </form>
-      </Modal>
+      </HrModal>
 
       {user.employee && (
-        <Modal
+        <HrModal
           title={`Edit — ${displayName}`}
           open={editOpen}
           onClose={() => setEditOpen(false)}
@@ -407,11 +405,11 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
               ) : null}
             </div>
           </div>
-        </Modal>
+        </HrModal>
       )}
 
       {user.employee && (
-        <Modal
+        <HrModal
           title={`End contract — ${displayName}`}
           open={endOpen}
           onClose={() => setEndOpen(false)}
@@ -446,10 +444,10 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
               </Button>
             </div>
           </form>
-        </Modal>
+        </HrModal>
       )}
 
-      <Modal
+      <HrModal
         title={`Attach contract — ${displayName}`}
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
@@ -495,7 +493,7 @@ function HrUserRowItem({ user }: { user: HrUserRow }) {
             </Button>
           </div>
         </form>
-      </Modal>
+      </HrModal>
     </>
   );
 }

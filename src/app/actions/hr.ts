@@ -281,6 +281,12 @@ export async function uploadEmployeeDocument(
     return { error: "File must be 10 MB or smaller." };
   }
 
+  // Magic-byte check: PDF files start with "%PDF-".
+  const head = Buffer.from(await file.slice(0, 5).arrayBuffer());
+  if (!head.toString("latin1").startsWith("%PDF-")) {
+    return { error: "The file does not look like a valid PDF." };
+  }
+
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: { id: true },

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
+import { sanitizeFilename } from "@/lib/content-disposition";
 import { hasHrAccess } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -31,7 +32,8 @@ export async function GET(
   return new NextResponse(result.stream, {
     headers: {
       "Content-Type": doc.mimeType || result.blob.contentType,
-      "Content-Disposition": `inline; filename="${doc.fileName.replace(/"/g, "")}"`,
+      "Content-Disposition": `inline; filename="${sanitizeFilename(doc.fileName, "document")}"`,
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

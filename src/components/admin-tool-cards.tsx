@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ToolCardKind } from "@prisma/client";
 import {
   deleteToolCard,
@@ -12,6 +12,7 @@ import { ToolCardIconPicker } from "@/components/tool-card-icon-picker";
 import { ToolCardKindBadge } from "@/components/tool-card-kind-badge";
 import { ToolCardKindFields } from "@/components/tool-card-kind-fields";
 import { toolCardAccessDescription, toolCardDeleteWarning } from "@/lib/tool-card-kind";
+import { Modal } from "@/components/modal";
 import { Button, Input, Textarea } from "@/components/ui";
 
 type ToolCardData = {
@@ -30,39 +31,6 @@ type UserOption = {
   label: string;
 };
 
-function Modal({
-  title,
-  open,
-  onClose,
-  children,
-  wide = false,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${
-          wide ? "max-w-xl" : "max-w-md"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function ToolCardRow({
   card,
   users,
@@ -74,6 +42,10 @@ function ToolCardRow({
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   const editUsedKeys = usedLinkedAppKeys.filter((key) => key !== card.linkedAppKey);
 
@@ -113,17 +85,44 @@ function ToolCardRow({
                 card.accessUserIds.length,
               );
               if (window.confirm(message)) {
-                void deleteToolCard(card.id);
+                setDeleteError(null);
+                startTransition(async () => {
+                  const result = await deleteToolCard(card.id);
+                  if (result.error) setDeleteError(result.error);
+                });
               }
             }}
           >
             Delete
           </Button>
         </div>
+        {deleteError && (
+          <p className="text-sm text-red-600" role="alert">
+            {deleteError}
+          </p>
+        )}
       </li>
 
-      <Modal title={`Edit — ${card.name}`} open={editOpen} onClose={() => setEditOpen(false)} wide>
-        <form action={updateToolCard} className="space-y-4" onSubmit={() => setEditOpen(false)}>
+      <Modal
+        title={`Edit — ${card.name}`}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        maxWidthClassName="max-w-xl"
+      >
+        <form
+          className="space-y-4"
+          action={(formData) => {
+            setEditError(null);
+            startTransition(async () => {
+              const result = await updateToolCard(formData);
+              if (result.error) {
+                setEditError(result.error);
+              } else {
+                setEditOpen(false);
+              }
+            });
+          }}
+        >
           <input type="hidden" name="cardId" value={card.id} />
           <Input label="Name" name="name" defaultValue={card.name} required />
           <Textarea label="Description" name="description" defaultValue={card.description} required />
@@ -134,17 +133,37 @@ function ToolCardRow({
             usedLinkedAppKeys={editUsedKeys}
           />
           <ToolCardIconPicker defaultValue={card.iconKey} />
+          {editError && (
+            <p className="text-sm text-red-600" role="alert">
+              {editError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
+            </Button>
           </div>
         </form>
       </Modal>
 
       <Modal title={`Access — ${card.name}`} open={accessOpen} onClose={() => setAccessOpen(false)}>
-        <form action={setCardAccess} className="space-y-4" onSubmit={() => setAccessOpen(false)}>
+        <form
+          className="space-y-4"
+          action={(formData) => {
+            setAccessError(null);
+            startTransition(async () => {
+              const result = await setCardAccess(formData);
+              if (result.error) {
+                setAccessError(result.error);
+              } else {
+                setAccessOpen(false);
+              }
+            });
+          }}
+        >
           <input type="hidden" name="cardId" value={card.id} />
           <p className="text-sm text-slate-600">
             {toolCardAccessDescription(card.kind, card.linkedAppKey)}
@@ -163,11 +182,18 @@ function ToolCardRow({
               </label>
             ))}
           </div>
+          {accessError && (
+            <p className="text-sm text-red-600" role="alert">
+              {accessError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setAccessOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save access</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save access"}
+            </Button>
           </div>
         </form>
       </Modal>

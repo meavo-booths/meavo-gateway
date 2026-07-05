@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const result = await processNotificationOutbox();
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Notification processing failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Notification processing cron failed:", error);
+    return NextResponse.json({ error: "Notification processing failed" }, { status: 500 });
   }
 }

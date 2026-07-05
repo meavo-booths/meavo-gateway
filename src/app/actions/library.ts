@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { del, put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -14,9 +15,10 @@ function isHtmlFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".html") || file.name.toLowerCase().endsWith(".htm");
 }
 
-async function requireUser() {
+async function requireAdminUser() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
   return session.user;
 }
 
@@ -26,7 +28,7 @@ export async function uploadLibraryAsset(
   _prev: UploadState,
   formData: FormData
 ): Promise<UploadState> {
-  const user = await requireUser();
+  const user = await requireAdminUser();
 
   const slug = (formData.get("slug") as string)?.trim();
   const file = formData.get("file");
@@ -45,6 +47,12 @@ export async function uploadLibraryAsset(
 
   if (file.size > MAX_FILE_BYTES) {
     return { error: "File must be 10 MB or smaller." };
+  }
+
+  // Content check: reject binary payloads masquerading as HTML.
+  const head = Buffer.from(await file.slice(0, 4096).arrayBuffer());
+  if (head.includes(0)) {
+    return { error: "The file does not look like an HTML document." };
   }
 
   const asset = await prisma.libraryAsset.findUnique({

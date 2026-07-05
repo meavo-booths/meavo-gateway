@@ -11,6 +11,7 @@ import {
 import { TemplateBodyEditor, type TemplateBodyEditorHandle } from "@/components/template-body-editor";
 import { TemplateMarkupPreview } from "@/components/template-markup-preview";
 import { TEMPLATE_PLACEHOLDER_OPTIONS } from "@/lib/template-placeholders";
+import { Modal } from "@/components/modal";
 import { Button, Card, Input } from "@/components/ui";
 
 export type DocumentTemplateListItem = {
@@ -179,12 +180,14 @@ function GenerateDocumentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">Generate document</h3>
+    <Modal
+      title="Generate document"
+      open
+      onClose={onClose}
+      maxWidthClassName="max-w-3xl"
+      panelClassName="max-h-[90vh] overflow-y-auto p-6"
+      bodyClassName=""
+    >
         <p className="mt-1 text-sm text-slate-500">
           {templateName} · version {templateVersion.versionNumber}
         </p>
@@ -331,8 +334,7 @@ function GenerateDocumentModal({
             {generatePending ? "Generating…" : "Generate PDF"}
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -351,12 +353,14 @@ function EditTemplateModal({
   const bodyEditorRef = useRef<TemplateBodyEditorHandle>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">Edit template</h3>
+    <Modal
+      title="Edit template"
+      open
+      onClose={onClose}
+      maxWidthClassName="max-w-3xl"
+      panelClassName="max-h-[90vh] overflow-y-auto p-6"
+      bodyClassName=""
+    >
         <p className="mt-1 text-sm text-slate-500">
           Saving creates version {template.currentVersion.versionNumber + 1}. Previous versions are kept.
         </p>
@@ -419,8 +423,7 @@ function EditTemplateModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -434,12 +437,14 @@ function VersionHistoryModal({
   onGenerate: (version: { id: string; versionNumber: number }) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">Version history</h3>
+    <Modal
+      title="Version history"
+      open
+      onClose={onClose}
+      maxWidthClassName="max-w-lg"
+      panelClassName="max-h-[90vh] overflow-y-auto p-6"
+      bodyClassName=""
+    >
         <p className="mt-1 text-sm text-slate-500">{template.name}</p>
 
         <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -477,8 +482,7 @@ function VersionHistoryModal({
             Close
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

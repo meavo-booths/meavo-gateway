@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { buildHrUserWhere, parseHrFilters } from "@/lib/hr-filters";
 import { prisma } from "@/lib/prisma";
 import { HrFilters } from "@/components/hr-filters";
 import { HrUserList, type HrUserRow } from "@/components/hr-user-list";
+
+const PAGE_SIZE = 25;
 
 export default async function HrEmployeesPage({
   searchParams,
@@ -12,6 +15,7 @@ export default async function HrEmployeesPage({
     company?: string | string[];
     contract?: string | string[];
     team?: string | string[];
+    page?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -24,9 +28,19 @@ export default async function HrEmployeesPage({
   const filters = parseHrFilters(params, validTeamIds);
   const where = buildHrUserWhere(filters);
 
+  const totalUsers = await prisma.user.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const requestedPage = Number(Array.isArray(params.page) ? params.page[0] : params.page);
+  const page = Math.min(
+    totalPages,
+    Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1,
+  );
+
   const users = await prisma.user.findMany({
     where,
     orderBy: [{ name: "asc" }, { email: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     select: {
       id: true,
       name: true,
@@ -94,6 +108,17 @@ export default async function HrEmployeesPage({
       : null,
   }));
 
+  const pageHref = (target: number) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (key === "page" || value === undefined) continue;
+      for (const v of Array.isArray(value) ? value : [value]) query.append(key, v);
+    }
+    if (target > 1) query.set("page", String(target));
+    const qs = query.toString();
+    return qs ? `/hr/employees?${qs}` : "/hr/employees";
+  };
+
   return (
     <div>
       <HrFilters
@@ -106,6 +131,27 @@ export default async function HrEmployeesPage({
         teamOptions={teamOptions}
       />
       <HrUserList users={rows} />
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="font-medium text-brand-700 hover:underline">
+              ← Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span>
+            Page {page} of {totalPages} · {totalUsers} user{totalUsers !== 1 ? "s" : ""}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className="font-medium text-brand-700 hover:underline">
+              Next →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
     </div>
   );
 }

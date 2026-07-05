@@ -1,5 +1,8 @@
 import { Nav } from "@/components/nav";
 
+// Deliberately force-dynamic: without it, `next build` attempts to prerender
+// these pages and runs their Prisma queries (including writes like the HR
+// company-profile upsert) against the production database at build time.
 export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

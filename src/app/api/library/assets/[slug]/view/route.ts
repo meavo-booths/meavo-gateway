@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { auth } from "@/lib/auth";
+import { sanitizeFilename } from "@/lib/content-disposition";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -27,12 +28,16 @@ export async function GET(
     return NextResponse.json({ error: "File unavailable" }, { status: 404 });
   }
 
-  const fileName = asset.fileName?.replace(/"/g, "") || "dashboard.html";
+  const fileName = sanitizeFilename(asset.fileName, "dashboard.html");
 
   return new NextResponse(result.stream, {
     headers: {
       "Content-Type": asset.mimeType || "text/html",
       "Content-Disposition": `inline; filename="${fileName}"`,
+      // Defense in depth: even if opened directly (not via the sandboxed
+      // iframe), the document runs in an opaque origin with no cookie access.
+      "Content-Security-Policy": "sandbox allow-scripts",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

@@ -11,6 +11,8 @@ import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 
+export type ActionResult = { error?: string };
+
 async function requireAdmin() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -24,7 +26,17 @@ function revalidateAdminPages() {
   revalidatePath("/admin/tools");
 }
 
-export async function createUser(formData: FormData): Promise<void> {
+/** Tool-card links must be absolute https URLs (no javascript:/data: schemes). */
+function isValidToolCardUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export async function createUser(formData: FormData): Promise<ActionResult> {
   const admin = await requireAdmin();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const name = (formData.get("name") as string)?.trim() || null;
@@ -36,11 +48,12 @@ export async function createUser(formData: FormData): Promise<void> {
   const role =
     (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
 
-  if (!email || !teamId) return;
-  if (password && password.length < 8) return;
+  if (!email || !teamId) return { error: "Email and team are required." };
+  if (password && password.length < 8)
+    return { error: "Password must be at least 8 characters." };
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return;
+  if (existing) return { error: "A user with this email already exists." };
 
   const passwordHash = password ? await hashPassword(password) : null;
 
@@ -72,36 +85,40 @@ export async function createUser(formData: FormData): Promise<void> {
   });
 
   revalidateAdminPages();
+  return {};
 }
 
-export async function deleteUser(userId: string): Promise<void> {
+export async function deleteUser(userId: string): Promise<ActionResult> {
   const session = await requireAdmin();
-  if (!userId || userId === session.id) return;
+  if (!userId || userId === session.id)
+    return { error: "You cannot delete your own account." };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { systemRole: true },
   });
-  if (!user) return;
+  if (!user) return { error: "User not found." };
 
   if (user.systemRole === SystemRole.ADMIN) {
     const adminCount = await prisma.user.count({
       where: { systemRole: SystemRole.ADMIN },
     });
-    if (adminCount <= 1) return;
+    if (adminCount <= 1) return { error: "Cannot delete the last admin." };
   }
 
   await prisma.user.delete({ where: { id: userId } });
   revalidateAdminPages();
+  return {};
 }
 
-export async function resetUserPassword(formData: FormData): Promise<void> {
+export async function resetUserPassword(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const userId = formData.get("userId") as string;
   const password = formData.get("password") as string;
 
-  if (!userId) return;
-  if (!password || password.length < 8) return;
+  if (!userId) return { error: "Missing user." };
+  if (!password || password.length < 8)
+    return { error: "Password must be at least 8 characters." };
 
   await prisma.user.update({
     where: { id: userId },
@@ -109,16 +126,17 @@ export async function resetUserPassword(formData: FormData): Promise<void> {
   });
 
   revalidateAdminPages();
+  return {};
 }
 
-export async function changeUserTeam(formData: FormData): Promise<void> {
+export async function changeUserTeam(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const userId = formData.get("userId") as string;
   const teamId = formData.get("teamId") as string;
   const role =
     (formData.get("role") as string) === "MANAGER" ? TeamRole.MANAGER : TeamRole.MEMBER;
 
-  if (!userId || !teamId) return;
+  if (!userId || !teamId) return { error: "Select a team." };
 
   await prisma.$transaction(async (tx) => {
     await tx.teamMember.deleteMany({ where: { userId } });
@@ -126,35 +144,38 @@ export async function changeUserTeam(formData: FormData): Promise<void> {
   });
 
   revalidateAdminPages();
+  return {};
 }
 
-export async function createTeam(formData: FormData): Promise<void> {
+export async function createTeam(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const name = (formData.get("name") as string)?.trim();
   const yearlyAllowance = Number(formData.get("yearlyAllowance"));
   const colorInput = (formData.get("color") as string) ?? DEFAULT_TEAM_COLOR;
   const color = isValidTeamColor(colorInput) ? colorInput : DEFAULT_TEAM_COLOR;
 
-  if (!name) return;
-  if (!Number.isFinite(yearlyAllowance) || yearlyAllowance < 0) return;
+  if (!name) return { error: "Team name is required." };
+  if (!Number.isFinite(yearlyAllowance) || yearlyAllowance < 0)
+    return { error: "Yearly allowance must be a non-negative number." };
 
   try {
     await prisma.team.create({ data: { name, yearlyAllowance, color } });
   } catch {
-    return;
+    return { error: "Could not create team — the name may already be in use." };
   }
 
   revalidateAdminPages();
+  return {};
 }
 
-export async function updateTeam(formData: FormData): Promise<void> {
+export async function updateTeam(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const teamId = formData.get("teamId") as string;
   const name = (formData.get("name") as string)?.trim();
   const colorInput = (formData.get("color") as string) ?? DEFAULT_TEAM_COLOR;
   const color = isValidTeamColor(colorInput) ? colorInput : DEFAULT_TEAM_COLOR;
 
-  if (!teamId || !name) return;
+  if (!teamId || !name) return { error: "Team name is required." };
 
   try {
     await prisma.team.update({
@@ -162,18 +183,20 @@ export async function updateTeam(formData: FormData): Promise<void> {
       data: { name, color },
     });
   } catch {
-    return;
+    return { error: "Could not update team — the name may already be in use." };
   }
 
   revalidateAdminPages();
+  return {};
 }
 
 export async function updateTeamAllowance(
   teamId: string,
   yearlyAllowance: number
-): Promise<void> {
+): Promise<ActionResult> {
   await requireAdmin();
-  if (!Number.isFinite(yearlyAllowance) || yearlyAllowance < 0) return;
+  if (!Number.isFinite(yearlyAllowance) || yearlyAllowance < 0)
+    return { error: "Allowance must be a non-negative number." };
 
   await prisma.team.update({
     where: { id: teamId },
@@ -181,6 +204,7 @@ export async function updateTeamAllowance(
   });
 
   revalidateAdminPages();
+  return {};
 }
 
 async function assertLinkedAppKeyAvailable(
@@ -198,7 +222,7 @@ async function assertLinkedAppKeyAvailable(
   return !existing;
 }
 
-export async function createToolCard(formData: FormData): Promise<void> {
+export async function createToolCard(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
@@ -206,13 +230,15 @@ export async function createToolCard(formData: FormData): Promise<void> {
   const iconKey = parseIconKey(formData);
   const kindFields = parseToolCardKindFields(formData);
 
-  if (!name || !description || !url || !kindFields) return;
+  if (!name || !description || !url || !kindFields)
+    return { error: "All fields are required." };
+  if (!isValidToolCardUrl(url)) return { error: "Link URL must be a valid https:// URL." };
   if (
     kindFields.kind === ToolCardKind.APP_ACCESS &&
     kindFields.linkedAppKey &&
     !(await assertLinkedAppKeyAvailable(kindFields.linkedAppKey))
   ) {
-    return;
+    return { error: "Another card already links to this app." };
   }
 
   await prisma.toolCard.create({
@@ -228,9 +254,10 @@ export async function createToolCard(formData: FormData): Promise<void> {
 
   revalidateAdminPages();
   revalidatePath("/");
+  return {};
 }
 
-export async function updateToolCard(formData: FormData): Promise<void> {
+export async function updateToolCard(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const cardId = formData.get("cardId") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -239,13 +266,15 @@ export async function updateToolCard(formData: FormData): Promise<void> {
   const iconKey = parseIconKey(formData);
   const kindFields = parseToolCardKindFields(formData);
 
-  if (!cardId || !name || !description || !url || !kindFields) return;
+  if (!cardId || !name || !description || !url || !kindFields)
+    return { error: "All fields are required." };
+  if (!isValidToolCardUrl(url)) return { error: "Link URL must be a valid https:// URL." };
   if (
     kindFields.kind === ToolCardKind.APP_ACCESS &&
     kindFields.linkedAppKey &&
     !(await assertLinkedAppKeyAvailable(kindFields.linkedAppKey, cardId))
   ) {
-    return;
+    return { error: "Another card already links to this app." };
   }
 
   await prisma.toolCard.update({
@@ -262,21 +291,23 @@ export async function updateToolCard(formData: FormData): Promise<void> {
 
   revalidateAdminPages();
   revalidatePath("/");
+  return {};
 }
 
-export async function deleteToolCard(cardId: string): Promise<void> {
+export async function deleteToolCard(cardId: string): Promise<ActionResult> {
   await requireAdmin();
-  if (!cardId) return;
+  if (!cardId) return { error: "Missing card." };
 
   await prisma.toolCard.delete({ where: { id: cardId } });
   revalidateAdminPages();
   revalidatePath("/");
+  return {};
 }
 
-export async function setCardAccess(formData: FormData): Promise<void> {
+export async function setCardAccess(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const cardId = formData.get("cardId") as string;
-  if (!cardId) return;
+  if (!cardId) return { error: "Missing card." };
 
   const userIds = formData.getAll("userId").map((id) => String(id));
 
@@ -291,12 +322,13 @@ export async function setCardAccess(formData: FormData): Promise<void> {
 
   revalidateAdminPages();
   revalidatePath("/");
+  return {};
 }
 
-export async function setUserAccess(formData: FormData): Promise<void> {
+export async function setUserAccess(formData: FormData): Promise<ActionResult> {
   const admin = await requireAdmin();
   const userId = formData.get("userId") as string;
-  if (!userId) return;
+  if (!userId) return { error: "Missing user." };
 
   const cardIds = formData.getAll("cardId").map((id) => String(id));
   const makeAdmin = formData.get("makeAdmin") === "on";
@@ -306,7 +338,7 @@ export async function setUserAccess(formData: FormData): Promise<void> {
     where: { id: userId },
     select: { systemRole: true, hrAccess: true },
   });
-  if (!user) return;
+  if (!user) return { error: "User not found." };
 
   const grantHr = (await canGrantHrAccess(admin.id))
     ? grantHrRequested
@@ -316,7 +348,8 @@ export async function setUserAccess(formData: FormData): Promise<void> {
     const adminCount = await prisma.user.count({
       where: { systemRole: SystemRole.ADMIN },
     });
-    if (adminCount <= 1) return;
+    if (adminCount <= 1)
+      return { error: "Cannot remove admin access from the last admin." };
   }
 
   await prisma.$transaction(async (tx) => {
@@ -340,4 +373,5 @@ export async function setUserAccess(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/hr/employees");
   revalidatePath("/hr/documentation");
+  return {};
 }

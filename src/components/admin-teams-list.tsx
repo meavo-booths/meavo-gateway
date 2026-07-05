@@ -1,7 +1,6 @@
-import { updateTeam, updateTeamAllowance } from "@/app/actions/admin";
 import { resolveTeamColor } from "@/lib/team-colors";
-import { TeamColorPicker } from "@/components/team-color-picker";
-import { Button, Card, Input } from "@/components/ui";
+import { UpdateTeamAllowanceForm, UpdateTeamForm } from "@/components/admin-create-forms";
+import { Card } from "@/components/ui";
 
 export type AdminTeam = {
   id: string;
@@ -41,38 +40,14 @@ export function AdminTeamsList({ teams }: { teams: AdminTeam[] }) {
                 Default allowance: {team.yearlyAllowance} days/year
               </p>
             </div>
-            <form
-              action={async (formData) => {
-                "use server";
-                await updateTeamAllowance(team.id, Number(formData.get("yearlyAllowance")));
-              }}
-              className="flex items-end gap-2"
-            >
-              <Input
-                label="Update allowance"
-                name="yearlyAllowance"
-                type="number"
-                defaultValue={team.yearlyAllowance}
-                min={0}
-              />
-              <Button type="submit" variant="secondary">
-                Save
-              </Button>
-            </form>
+            <UpdateTeamAllowanceForm teamId={team.id} yearlyAllowance={team.yearlyAllowance} />
           </div>
 
           <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
             <summary className="cursor-pointer text-sm font-medium text-slate-700">
               Edit team name &amp; colour
             </summary>
-            <form action={updateTeam} className="mt-4 space-y-4">
-              <input type="hidden" name="teamId" value={team.id} />
-              <Input label="Team name" name="name" defaultValue={team.name} required />
-              <TeamColorPicker defaultColor={team.color} />
-              <Button type="submit" variant="secondary">
-                Save changes
-              </Button>
-            </form>
+            <UpdateTeamForm teamId={team.id} teamName={team.name} teamColor={team.color} />
           </details>
 
           {team.members.length === 0 ? (

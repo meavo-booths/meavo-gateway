@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { changeUserTeam, resetUserPassword, setUserAccess } from "@/app/actions/admin";
 import { DeleteUserButton } from "@/components/delete-user-button";
+import { Modal } from "@/components/modal";
 import { Button, Input, Select } from "@/components/ui";
 
 type TeamOption = { value: string; label: string };
@@ -32,37 +33,6 @@ function filterFieldClassName() {
   return "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
 }
 
-function Modal({
-  title,
-  open,
-  onClose,
-  wide = false,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  wide?: boolean;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className={`w-full rounded-xl border border-slate-200 bg-white p-6 shadow-lg ${wide ? "max-w-md" : "max-w-sm"}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function AdminUserRow({
   user,
   teamOptions,
@@ -79,6 +49,10 @@ function AdminUserRow({
   const [resetOpen, setResetOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const displayName = userDisplayName(user);
   const teamLabel = user.teamName
     ? `${user.teamName} · ${user.role === "MANAGER" ? "Manager" : "Member"}`
@@ -118,9 +92,21 @@ function AdminUserRow({
         title={`Access — ${displayName}`}
         open={accessOpen}
         onClose={() => setAccessOpen(false)}
-        wide
       >
-        <form action={setUserAccess} className="space-y-4" onSubmit={() => setAccessOpen(false)}>
+        <form
+          className="space-y-4"
+          action={(formData) => {
+            setAccessError(null);
+            startTransition(async () => {
+              const result = await setUserAccess(formData);
+              if (result.error) {
+                setAccessError(result.error);
+              } else {
+                setAccessOpen(false);
+              }
+            });
+          }}
+        >
           <input type="hidden" name="userId" value={user.id} />
           <div className="space-y-2 rounded-lg border border-slate-200 p-3">
             <p className="text-sm font-medium text-slate-700">Privileges</p>
@@ -167,17 +153,42 @@ function AdminUserRow({
               ))
             )}
           </div>
+          {accessError && (
+            <p className="text-sm text-red-600" role="alert">
+              {accessError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setAccessOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save access</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save access"}
+            </Button>
           </div>
         </form>
       </Modal>
 
-      <Modal title={`Change team — ${displayName}`} open={teamOpen} onClose={() => setTeamOpen(false)}>
-        <form action={changeUserTeam} className="space-y-4" onSubmit={() => setTeamOpen(false)}>
+      <Modal
+        title={`Change team — ${displayName}`}
+        open={teamOpen}
+        onClose={() => setTeamOpen(false)}
+        maxWidthClassName="max-w-sm"
+      >
+        <form
+          className="space-y-4"
+          action={(formData) => {
+            setTeamError(null);
+            startTransition(async () => {
+              const result = await changeUserTeam(formData);
+              if (result.error) {
+                setTeamError(result.error);
+              } else {
+                setTeamOpen(false);
+              }
+            });
+          }}
+        >
           <input type="hidden" name="userId" value={user.id} />
           <Select
             label="Team"
@@ -195,11 +206,18 @@ function AdminUserRow({
               { value: "MANAGER", label: "Manager" },
             ]}
           />
+          {teamError && (
+            <p className="text-sm text-red-600" role="alert">
+              {teamError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setTeamOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -208,8 +226,22 @@ function AdminUserRow({
         title={`Reset password — ${displayName}`}
         open={resetOpen}
         onClose={() => setResetOpen(false)}
+        maxWidthClassName="max-w-sm"
       >
-        <form action={resetUserPassword} className="space-y-4" onSubmit={() => setResetOpen(false)}>
+        <form
+          className="space-y-4"
+          action={(formData) => {
+            setResetError(null);
+            startTransition(async () => {
+              const result = await resetUserPassword(formData);
+              if (result.error) {
+                setResetError(result.error);
+              } else {
+                setResetOpen(false);
+              }
+            });
+          }}
+        >
           <input type="hidden" name="userId" value={user.id} />
           <Input
             label="New password"
@@ -219,11 +251,18 @@ function AdminUserRow({
             autoComplete="new-password"
             placeholder="At least 8 characters"
           />
+          {resetError && (
+            <p className="text-sm text-red-600" role="alert">
+              {resetError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setResetOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Reset password</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Reset password"}
+            </Button>
           </div>
         </form>
       </Modal>

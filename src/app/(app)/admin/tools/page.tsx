@@ -1,10 +1,8 @@
 import { ToolCardKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { createToolCard } from "@/app/actions/admin";
+import { CreateToolCardForm } from "@/components/admin-create-forms";
 import { AdminToolCards } from "@/components/admin-tool-cards";
-import { ToolCardIconPicker } from "@/components/tool-card-icon-picker";
-import { ToolCardKindFields } from "@/components/tool-card-kind-fields";
-import { Button, Card, Input, Textarea } from "@/components/ui";
+import { Card } from "@/components/ui";
 
 export default async function AdminToolsPage() {
   const [users, cards] = await Promise.all([
@@ -62,26 +60,7 @@ export default async function AdminToolsPage() {
               />
             </svg>
           </summary>
-          <form
-            action={createToolCard}
-            className="mt-4 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2"
-          >
-            <Input label="Name" name="name" required placeholder="Vacation Tracker" />
-            <Input label="Link URL" name="url" type="url" required placeholder="https://..." />
-            <div className="sm:col-span-2">
-              <Textarea
-                label="Description"
-                name="description"
-                required
-                placeholder="What this tool is for"
-              />
-            </div>
-            <ToolCardKindFields usedLinkedAppKeys={usedLinkedAppKeys} />
-            <ToolCardIconPicker />
-            <div className="sm:col-span-2">
-              <Button type="submit">Create card</Button>
-            </div>
-          </form>
+          <CreateToolCardForm usedLinkedAppKeys={usedLinkedAppKeys} />
         </details>
       </Card>
 

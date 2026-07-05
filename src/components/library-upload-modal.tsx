@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadLibraryAsset } from "@/app/actions/library";
+import { Modal } from "@/components/modal";
 import { Button } from "@/components/ui";
 
 type UploadMeta = {
@@ -42,21 +43,7 @@ export function LibraryUploadModal({ slug, hasFile, uploadMeta }: Props) {
         {hasFile ? "Replace dashboard" : "Upload dashboard"}
       </Button>
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="library-upload-title"
-          >
-            <h3 id="library-upload-title" className="text-lg font-semibold text-slate-900">
-              Upload dashboard
-            </h3>
+      <Modal title="Upload dashboard" open={open} onClose={() => setOpen(false)} bodyClassName="">
             <p className="mt-1 text-sm text-slate-500">
               Upload a self-contained HTML export. Inline CSS and JS work best; relative asset paths
               may not load unless bundled in the file.
@@ -105,9 +92,7 @@ export function LibraryUploadModal({ slug, hasFile, uploadMeta }: Props) {
                 {uploadMeta.uploadedByLabel ? ` by ${uploadMeta.uploadedByLabel}` : null}
               </p>
             ) : null}
-          </div>
-        </div>
-      ) : null}
+      </Modal>
     </>
   );
 }

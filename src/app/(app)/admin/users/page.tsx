@@ -3,11 +3,10 @@ import { auth } from "@/lib/auth";
 import { canGrantHrAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ToolCardKind } from "@prisma/client";
-import { createTeam, createUser } from "@/app/actions/admin";
+import { CreateTeamForm, CreateUserForm } from "@/components/admin-create-forms";
 import { AdminUsersList } from "@/components/admin-users-list";
 import { toolCardKindLabel } from "@/lib/tool-card-kind";
-import { TeamColorPicker } from "@/components/team-color-picker";
-import { Button, Card, Input, Select } from "@/components/ui";
+import { Card } from "@/components/ui";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -91,38 +90,7 @@ export default async function AdminUsersPage() {
             {teamOptions.length === 0 ? (
               <p className="mt-4 text-sm text-amber-700">Create a team before adding users.</p>
             ) : (
-              <form action={createUser} className="mt-4 space-y-4 border-t border-slate-100 pt-4">
-                <Input label="Email" name="email" type="email" required />
-                <Input label="Name" name="name" placeholder="Jane Smith" />
-                <Input
-                  label="Password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Optional — leave blank for Google-only"
-                />
-                <Select label="Team" name="teamId" required options={teamOptions} />
-                <Select
-                  label="Team role"
-                  name="role"
-                  defaultValue="MEMBER"
-                  options={[
-                    { value: "MEMBER", label: "Member" },
-                    { value: "MANAGER", label: "Manager" },
-                  ]}
-                />
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input type="checkbox" name="makeAdmin" className="rounded border-slate-300" />
-                  Admin access
-                </label>
-                {canGrantHr && (
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" name="grantHr" className="rounded border-slate-300" />
-                    HR access
-                  </label>
-                )}
-                <Button type="submit">Create user</Button>
-              </form>
+              <CreateUserForm teamOptions={teamOptions} canGrantHr={canGrantHr} />
             )}
           </details>
         </Card>
@@ -149,19 +117,7 @@ export default async function AdminUsersPage() {
                 />
               </svg>
             </summary>
-            <form action={createTeam} className="mt-4 space-y-4 border-t border-slate-100 pt-4">
-              <Input label="Team name" name="name" required placeholder="Engineering" />
-              <Input
-                label="Yearly allowance (days)"
-                name="yearlyAllowance"
-                type="number"
-                defaultValue={25}
-                min={0}
-                required
-              />
-              <TeamColorPicker />
-              <Button type="submit">Create team</Button>
-            </form>
+            <CreateTeamForm />
           </details>
         </Card>
       </div>

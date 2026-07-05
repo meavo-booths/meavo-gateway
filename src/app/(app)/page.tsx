@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/permissions";
 import { getHomeRevenueStats } from "@/lib/revenue-stats";
 import { getToolCardStatsMap } from "@/lib/tool-card-stats";
 import { RevenueSummaryCard } from "@/components/revenue-summary-card";
@@ -14,7 +13,7 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const admin = await isAdmin(session.user.id);
+  const admin = session.user.systemRole === "ADMIN";
 
   const cards = admin
     ? await prisma.toolCard.findMany({
