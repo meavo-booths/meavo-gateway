@@ -75,6 +75,47 @@ async function getHolsStats(): Promise<ToolCardStats> {
   };
 }
 
+async function getMrpStats(): Promise<ToolCardStats> {
+  // Raw query: the MrpDocument table is owned by the MRP app and absent from
+  // gateway's Prisma schema (which is a subset of the shared DB).
+  const rows = await prisma.$queryRaw<{ pending: bigint; approved: bigint }[]>`
+    SELECT
+      COUNT(*) FILTER (WHERE "status" = 'pending_review') AS pending,
+      COUNT(*) FILTER (WHERE "status" IN ('approved', 'synced')
+        AND "approvedAt" >= date_trunc('month', now())) AS approved
+    FROM "MrpDocument"
+  `;
+  const pending = Number(rows[0]?.pending ?? 0);
+  const approved = Number(rows[0]?.approved ?? 0);
+
+  return {
+    lines: [
+      { label: "Pending review", value: String(pending) },
+      { label: "Approved this month", value: String(approved) },
+    ],
+  };
+}
+
+async function getFactoryStats(): Promise<ToolCardStats> {
+  // Raw query: Factory tables are owned by the factory app and absent from
+  // gateway's Prisma schema (which is a subset of the shared DB).
+  const rows = await prisma.$queryRaw<{ active: bigint; today: bigint }[]>`
+    SELECT
+      (SELECT COUNT(*) FROM "FactoryProductionBatch" WHERE "status" = 'active') AS active,
+      (SELECT COALESCE(SUM("qtyGood"), 0) FROM "FactoryProductionEvent"
+        WHERE "recordedAt" >= date_trunc('day', now())) AS today
+  `;
+  const active = Number(rows[0]?.active ?? 0);
+  const today = Number(rows[0]?.today ?? 0);
+
+  return {
+    lines: [
+      { label: "Active batches", value: String(active) },
+      { label: "Parts today", value: String(today) },
+    ],
+  };
+}
+
 async function getSalesStats(): Promise<ToolCardStats> {
   // Raw query: the Deal table is owned by the sales app and intentionally
   // absent from gateway's Prisma schema (which is a subset of the shared DB).
@@ -99,6 +140,8 @@ const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   assembly: getAssemblyStats,
   hols: getHolsStats,
   sales: getSalesStats,
+  mrp: getMrpStats,
+  factory: getFactoryStats,
 };
 
 export async function getToolCardStats(

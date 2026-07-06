@@ -150,6 +150,78 @@ async function main() {
     },
   });
 
+  const mrpCard = await prisma.toolCard.upsert({
+    where: { id: "seed-mrp-tool" },
+    update: {
+      name: "MRP",
+      description: "Scan invoices, track materials and stock, and sync to Zeron.",
+      url: "https://mrp.meavo.app",
+      iconKey: "replacement",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "mrp",
+      sortOrder: 3,
+      isActive: true,
+    },
+    create: {
+      id: "seed-mrp-tool",
+      name: "MRP",
+      description: "Scan invoices, track materials and stock, and sync to Zeron.",
+      url: "https://mrp.meavo.app",
+      iconKey: "replacement",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "mrp",
+      sortOrder: 3,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: mrpCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: mrpCard.id,
+    },
+  });
+
+  const factoryCard = await prisma.toolCard.upsert({
+    where: { id: "seed-factory-tool" },
+    update: {
+      name: "Factory",
+      description: "Production monitoring: floor kiosks, schedule, and planning.",
+      url: "https://factory.meavo.app",
+      iconKey: "factory",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "factory",
+      sortOrder: 4,
+      isActive: true,
+    },
+    create: {
+      id: "seed-factory-tool",
+      name: "Factory",
+      description: "Production monitoring: floor kiosks, schedule, and planning.",
+      url: "https://factory.meavo.app",
+      iconKey: "factory",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "factory",
+      sortOrder: 4,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: factoryCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: factoryCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -164,7 +236,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly and Sales cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP and Factory cards.`);
 }
 
 main()
