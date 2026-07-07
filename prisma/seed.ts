@@ -222,6 +222,42 @@ async function main() {
     },
   });
 
+  const rpCard = await prisma.toolCard.upsert({
+    where: { id: "seed-rp-tool" },
+    update: {
+      name: "RP",
+      description: "Spare parts and panel order operations.",
+      url: "https://rp.meavo.app",
+      iconKey: "replacement",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "rp",
+      sortOrder: 5,
+      isActive: true,
+    },
+    create: {
+      id: "seed-rp-tool",
+      name: "RP",
+      description: "Spare parts and panel order operations.",
+      url: "https://rp.meavo.app",
+      iconKey: "replacement",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "rp",
+      sortOrder: 5,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: rpCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: rpCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -236,7 +272,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP and Factory cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory and RP cards.`);
 }
 
 main()
