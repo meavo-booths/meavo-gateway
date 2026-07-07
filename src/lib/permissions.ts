@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
 
+export const MARKET_DASHBOARD_SLUG = "market-dashboard";
+
+function marketingTeamId(): string | null {
+  const teamId = process.env.MARKETING_TEAM_ID?.trim();
+  return teamId || null;
+}
+
 export async function isAdmin(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -32,4 +39,22 @@ export async function canGrantHrAccess(userId: string): Promise<boolean> {
     select: { email: true },
   });
   return grantorEmails.includes(user?.email.toLowerCase() ?? "");
+}
+
+export async function canUploadLibraryAsset(userId: string, slug: string): Promise<boolean> {
+  if (await isAdmin(userId)) return true;
+  if (slug !== MARKET_DASHBOARD_SLUG) return false;
+
+  const teamId = marketingTeamId();
+  if (!teamId) return false;
+
+  const membership = await prisma.teamMember.findFirst({
+    where: { userId, teamId },
+    select: { id: true },
+  });
+  return Boolean(membership);
+}
+
+export async function canReplaceMarketDashboard(userId: string): Promise<boolean> {
+  return canUploadLibraryAsset(userId, MARKET_DASHBOARD_SLUG);
 }

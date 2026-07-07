@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { del, put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
+import { canUploadLibraryAsset } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -15,10 +15,10 @@ function isHtmlFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".html") || file.name.toLowerCase().endsWith(".htm");
 }
 
-async function requireAdminUser() {
+async function requireLibraryUploadUser(slug: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
-  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
+  if (!(await canUploadLibraryAsset(session.user.id, slug))) throw new Error("Forbidden");
   return session.user;
 }
 
@@ -28,14 +28,14 @@ export async function uploadLibraryAsset(
   _prev: UploadState,
   formData: FormData
 ): Promise<UploadState> {
-  const user = await requireAdminUser();
-
   const slug = (formData.get("slug") as string)?.trim();
-  const file = formData.get("file");
-
   if (!slug) {
     return { error: "Library section is required." };
   }
+
+  const user = await requireLibraryUploadUser(slug);
+
+  const file = formData.get("file");
 
   if (!(file instanceof File) || file.size === 0) {
     return { error: "An HTML file is required." };

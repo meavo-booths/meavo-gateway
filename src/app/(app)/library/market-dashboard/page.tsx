@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { LibrarySection } from "@/components/library-section";
 import { LibraryUploadModal } from "@/components/library-upload-modal";
 import { MarketDashboardPanel } from "@/components/market-dashboard-panel";
+import { canReplaceMarketDashboard } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const SLUG = "market-dashboard";
@@ -10,7 +11,7 @@ const SLUG = "market-dashboard";
 export default async function MarketDashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const admin = session.user.systemRole === "ADMIN";
+  const canUpload = await canReplaceMarketDashboard(session.user.id);
 
   const asset = await prisma.libraryAsset.upsert({
     where: { slug: SLUG },
@@ -31,7 +32,7 @@ export default async function MarketDashboardPage() {
   return (
     <LibrarySection
       actions={
-        admin ? (
+        canUpload ? (
           <LibraryUploadModal
             slug={SLUG}
             hasFile={hasFile}

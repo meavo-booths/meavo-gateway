@@ -136,12 +136,18 @@ async function getSalesStats(): Promise<ToolCardStats> {
   };
 }
 
+async function getRpStats(): Promise<ToolCardStats> {
+  // RP app tables are not yet in the shared schema; omit home-page stats for now.
+  return { lines: [] };
+}
+
 const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   assembly: getAssemblyStats,
   hols: getHolsStats,
   sales: getSalesStats,
   mrp: getMrpStats,
   factory: getFactoryStats,
+  rp: getRpStats,
 };
 
 export async function getToolCardStats(
