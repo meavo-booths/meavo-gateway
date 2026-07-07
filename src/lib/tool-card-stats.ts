@@ -141,6 +141,11 @@ async function getRpStats(): Promise<ToolCardStats> {
   return { lines: [] };
 }
 
+async function getClockStats(): Promise<ToolCardStats> {
+  // Clock-In app tables are not yet in the shared schema; omit home-page stats for now.
+  return { lines: [] };
+}
+
 const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   assembly: getAssemblyStats,
   hols: getHolsStats,
@@ -148,6 +153,7 @@ const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   mrp: getMrpStats,
   factory: getFactoryStats,
   rp: getRpStats,
+  clock: getClockStats,
 };
 
 export async function getToolCardStats(
