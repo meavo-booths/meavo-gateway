@@ -17,8 +17,11 @@ Meavo is a set of internal company tools, each deployed as its own Next.js app o
 | **MRP** | `mrp.meavo.app` | Materials, stock movements |
 | **Factory** | `factory.meavo.app` | Production batches, stations |
 | **RP** | `rp.meavo.app` | RP-specific data |
+| **Clock** | `clock.meavo.app` | Clock-in / time tracking |
 
 **Gateway is the source of truth** for identity (users, teams, permissions). Satellite apps read shared tables and write only their own domain tables.
+
+The hols repo is [meavo-booths/hols](https://github.com/meavo-booths/hols) (domain `hols.meavo.app`).
 
 Shared packages:
 
@@ -44,6 +47,7 @@ Every new Meavo app should use:
 | Auth | **NextAuth v5** (Auth.js) with JWT sessions |
 | Passwords | **bcryptjs** (12 rounds) |
 | Hosting | **Vercel** |
+| Analytics | **@vercel/analytics** + **@vercel/speed-insights** (optional but used in gateway) |
 | File storage | **Vercel Blob** (when uploads are needed) |
 | Email | **Resend** — only gateway sends; satellite apps **enqueue** only |
 
@@ -93,7 +97,7 @@ Path alias: `@/*` → `./src/*`.
 }
 ```
 
-Pin `@meavo/db` to a tagged release in `package.json`:
+Pin `@meavo/db` to a tagged release in `package.json` (check [meavo-booths/meavo-db](https://github.com/meavo-booths/meavo-db) for the latest tag):
 
 ```json
 "@meavo/db": "github:meavo-booths/meavo-db#v0.3.1"
@@ -297,10 +301,21 @@ import { getAccessibleTools, resolveCurrentToolId } from "@meavo/navigation/serv
 ```
 
 Set env vars:
-- `MEAVO_APP_KEY` — your app's key (e.g. `hols`, `assembly`, `sales`)
+- `MEAVO_APP_KEY` — your app's `linkedAppKey` (e.g. `hols`, `assembly`, `sales`)
 - `GATEWAY_URL` — `https://meavo.app`
 
 Filter nav links by permission (`adminOnly`, `hrOnly`, etc.) server-side before passing to `MeavoNavBar`.
+
+Add `@meavo/navigation` to `tailwind.config.ts` `content` so Tailwind picks up nav classes:
+
+```typescript
+content: [
+  "./src/**/*.{js,ts,jsx,tsx,mdx}",
+  "./node_modules/@meavo/navigation/dist/**/*.js",
+],
+```
+
+When registering a **new** app, you must also update the `@meavo/navigation` package — see §9.3.
 
 ---
 
@@ -309,8 +324,8 @@ Filter nav links by permission (`adminOnly`, `hrOnly`, etc.) server-side before 
 ### 6.1 NextAuth setup
 
 - **JWT session strategy** (not database sessions).
-- **Credentials provider:** email + bcrypt `passwordHash` on `User`.
-- **Google provider (optional):** invite-only — user must already exist in DB. Hide the button when `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are unset.
+- **Credentials provider (gateway, hols):** email + bcrypt `passwordHash` on `User`.
+- **Google provider (optional):** invite-only — user must already exist in DB. Hide the button when `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are unset. Some satellite apps are **Google-only** today (e.g. sales).
 
 Extend the session in `src/types/next-auth.d.ts`:
 
@@ -349,13 +364,50 @@ Each API route and Server Action must still verify permissions independently.
 
 ### 6.5 Satellite app login gating
 
-Satellite apps (hols, assembly, sales, etc.) must check **tool card access** before allowing sign-in:
+Satellite apps (hols, assembly, sales, etc.) must check **tool card access** at login **and** on ongoing requests so revoking access in gateway Admin takes effect immediately (not only when the JWT expires).
 
-1. Find the `ToolCard` with `kind: APP_ACCESS` and matching `linkedAppKey`.
-2. Verify the user has a `ToolCardAccess` row for that card (admins bypass).
-3. Reject login if no access.
+#### Tool card ID (not runtime `linkedAppKey` lookup)
 
-Register new apps in gateway's `src/lib/tool-card-registry.ts` and seed a default tool card.
+Each app stores the gateway seed card ID in an env var or constant — matching `defaultCardId` in gateway's `src/lib/tool-card-registry.ts`:
+
+| App | Env var | Default |
+|-----|---------|---------|
+| hols | `VACATION_TRACKER_CARD_ID` (hols repo) | `seed-vacation-tracker` |
+| assembly | `ASSEMBLY_TOOL_CARD_ID` | `seed-assembly-tool` |
+| sales | `SALES_TOOL_CARD_ID` | `seed-sales-tool` |
+| mrp | `MRP_TOOL_CARD_ID` | `seed-mrp-tool` |
+
+```typescript
+// src/lib/constants.ts
+export const MYAPP_TOOL_CARD_ID =
+  process.env.MYAPP_TOOL_CARD_ID ?? "seed-myapp-tool";
+```
+
+Do **not** look up the card by `linkedAppKey` at runtime — use the stable seed ID from the registry.
+
+#### Check access at login and on every request
+
+1. **At login** (credentials `authorize` or Google `signIn` validate): reject if no `ToolCardAccess` row for `{ userId, cardId: MYAPP_TOOL_CARD_ID }`.
+2. **On every authenticated request** (layouts, actions, API routes): re-check access. Hols implements this in `getHolsUser()` — replicate that pattern in a `requireMyAppAccess()` helper.
+
+```typescript
+const access = await prisma.toolCardAccess.findUnique({
+  where: {
+    userId_cardId: { userId: session.user.id, cardId: MYAPP_TOOL_CARD_ID },
+  },
+});
+if (!access) redirect("/login?error=NoAccess");
+```
+
+#### Admin bypass (inconsistent today — standardize per app)
+
+- **Gateway home page:** admins see all tool cards without individual grants.
+- **Hols:** `systemRole === ADMIN` bypasses access in ongoing session checks (`getHolsUser()`), but **not** in credentials `authorize()` — admins still need a `ToolCardAccess` row to log in via password unless seeded.
+- **Assembly / sales / mrp:** no admin bypass on access checks.
+
+Prefer granting admins explicit tool card access via gateway seed, or implement a consistent admin bypass in both login and session guards.
+
+Register new apps in gateway's `src/lib/tool-card-registry.ts` and seed a default tool card in gateway `prisma/seed.ts`.
 
 ---
 
@@ -449,7 +501,7 @@ Gateway, hols, assembly, sales, mrp, factory, and rp share **one database**.
 
 Gateway disables `db:push` in `package.json` for this reason. Instead:
 
-1. **Preferred:** update schema in `meavo-db`, bump dependency, deploy all apps.
+1. **Preferred:** update schema in [meavo-db](https://github.com/meavo-booths/meavo-db), tag a release, bump `@meavo/db` in every app, then apply from the canonical schema (see below).
 2. **Targeted SQL:** for gateway-only tables when schema lags, add `scripts/*.sql` and apply:
 
 ```bash
@@ -458,6 +510,16 @@ npx prisma db execute --file scripts/add-my-table.sql \
 ```
 
 SQL scripts must be idempotent (`CREATE TABLE IF NOT EXISTS`, `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object`).
+
+### 8.7 Applying schema to an environment
+
+Schema changes must be applied from the **canonical** `@meavo/db` schema — either from the `meavo-db` repo (`npm run db:push` there) or via the installed package after `npm install`:
+
+```bash
+npx prisma db push --schema node_modules/@meavo/db/prisma/schema.prisma
+```
+
+Gateway's `npm run db:push` is intentionally disabled. Production init (`npm run db:setup`) uses the command above, then runs `npm run db:seed`.
 
 ### 8.5 What a new app adds to the schema
 
@@ -509,10 +571,24 @@ export const APP_ACCESS_CARDS: Record<LinkedAppKey, AppAccessCardDefinition> = {
 Also:
 1. Add seed entry in `prisma/seed.ts` (gateway).
 2. Add tool card icon SVG in `public/icons/tool-cards/` (gateway).
-3. Set `MEAVO_APP_KEY=myapp` in the new app's Vercel env.
+3. Set `MEAVO_APP_KEY=myapp` and `MYAPP_TOOL_CARD_ID=seed-myapp-tool` in the new app's Vercel env.
 4. Create Vercel project with subdomain `myapp.meavo.app`.
+5. Update `@meavo/navigation` — see §9.3.
 
 Tool card URLs must be **HTTPS only** — validate with `new URL(url).protocol === "https:"`.
+
+### 9.3 Update `@meavo/navigation` for a new app
+
+The tool switcher reads cards from the database, but `@meavo/navigation` still needs typed app keys for `resolveCurrentToolId` and fallback labels. When adding an app:
+
+1. In [meavo-booths/meavo-navigation](https://github.com/meavo-booths/meavo-navigation):
+   - Add the key to `MeavoAppKey` in `src/types.ts`
+   - Add label in `APP_FALLBACK_LABELS` (`src/constants.ts`)
+   - Add hostname in `MEAVO_APP_HOSTS` (e.g. `myapp.meavo.app`)
+2. Tag a release and bump the dependency in gateway and the new app.
+3. Until navigation is updated, newer apps can pass `MEAVO_APP_KEY` with a cast (see `meavo-sales/src/components/nav.tsx`) — the switcher still matches by `linkedAppKey` from DB rows.
+
+See also the [meavo-navigation README](https://github.com/meavo-booths/meavo-navigation) for Tailwind `content` paths and Vercel install URLs.
 
 ---
 
@@ -521,6 +597,10 @@ Tool card URLs must be **HTTPS only** — validate with `new URL(url).protocol =
 Gateway owns email delivery. Satellite apps **enqueue only**.
 
 ### 10.1 Enqueue from any app
+
+Gateway owns the enqueue helper at `src/lib/notifications/enqueue.ts`. **Satellite apps must copy** this module into their own repo — there is no shared `@meavo/notifications` package yet. Use `meavo-assembly/src/lib/notifications/enqueue.ts` as the template.
+
+After copying into `src/lib/notifications/enqueue.ts`:
 
 ```typescript
 import { enqueueNotification } from "@/lib/notifications/enqueue";
@@ -532,6 +612,8 @@ void enqueueNotification({
   payload: { thingId: thing.id, userName: user.name },
 }).catch(console.error);
 ```
+
+Register the event type in gateway's `src/lib/notifications/event-catalog.ts` (see §10.2) **before** enqueueing new events.
 
 Satellite apps need only `DATABASE_URL` — no `RESEND_API_KEY`.
 
@@ -585,7 +667,9 @@ Every new app needs at minimum:
 DATABASE_URL=          # Same Neon connection string as gateway
 AUTH_SECRET=           # openssl rand -base64 32
 AUTH_URL=              # https://myapp.meavo.app (or http://localhost:3000)
-ADMIN_EMAILS=          # Comma-separated admin emails
+
+# Tool card access (satellite apps)
+MYAPP_TOOL_CARD_ID=    # Stable seed ID from tool-card-registry defaultCardId
 
 # Navigation / tool switcher
 MEAVO_APP_KEY=         # Your app's linkedAppKey
@@ -599,7 +683,7 @@ BLOB_READ_WRITE_TOKEN= # If the app handles uploads
 EMAIL_DEV_OVERRIDE=    # Redirect all emails in dev
 ```
 
-Gateway additionally needs: `RESEND_API_KEY`, `EMAIL_FROM`, `HR_ACCESS_GRANTOR_EMAIL`, `MARKETING_TEAM_ID`, Google Sheets vars, Slack webhook, etc. Satellite apps typically do not.
+Gateway additionally needs: `ADMIN_EMAILS`, `ADMIN_PASSWORD` (seed only), `RESEND_API_KEY`, `EMAIL_FROM`, `HR_ACCESS_GRANTOR_EMAIL`, `MARKETING_TEAM_ID`, Google Sheets vars, Slack webhook, etc. Satellite apps typically do not need `ADMIN_EMAILS` unless they promote admins on login.
 
 Always update `.env.example` when adding new env vars.
 
@@ -613,13 +697,15 @@ Always update `.env.example` when adding new env vars.
 - [ ] Add domain models to `meavo-db`, tag release, bump dependency.
 - [ ] Register app in `tool-card-registry.ts` (gateway).
 - [ ] Seed default tool card (gateway `prisma/seed.ts` or SQL script).
-- [ ] Implement auth with tool card access gating.
+- [ ] Implement auth with tool card access gating (§6.5).
+- [ ] Copy `enqueue.ts` and register notification events in gateway (if applicable).
+- [ ] Update `@meavo/navigation` types/labels/hosts, tag release, bump dependency (§9.3).
 - [ ] Add `@meavo/navigation` with correct `MEAVO_APP_KEY`.
 - [ ] Create Vercel project, set env vars, add domain.
 - [ ] Point `DATABASE_URL` at the **same Neon database** as gateway.
-- [ ] Register notification events in gateway (if applicable).
 - [ ] Add cron routes to `vercel.json` (if applicable).
 - [ ] Grant tool card access to initial users via gateway Admin.
+- [ ] Run post-deploy smoke: `scripts/post-migration-smoke.sh` (health + cron checks).
 
 ### 13.2 Vercel config
 
@@ -689,9 +775,9 @@ Add `GET /api/health` that runs `SELECT 1` against the database. Use for post-de
 
 ---
 
-## 16. Feature area map (gateway reference)
+## 16. Feature area map (gateway only)
 
-When extending gateway or looking for patterns:
+When **extending gateway** or looking for patterns in this repo:
 
 | Feature | Pages | Actions / lib |
 |---------|-------|---------------|
@@ -711,8 +797,12 @@ When extending gateway or looking for patterns:
 
 | Doc | Contents |
 |-----|----------|
-| `README.md` | Gateway setup, deploy, shared DB warnings, env vars |
-| `meavo-db` schema comments | Model ownership by app |
+| `README.md` | Gateway setup, deploy, env vars |
+| `AGENTS.md` | This file — patterns for new Meavo apps |
+| [meavo-db](https://github.com/meavo-booths/meavo-db) | Canonical schema; the only repo allowed to alter DB structure |
+| [meavo-navigation](https://github.com/meavo-booths/meavo-navigation) | Shared nav bar and tool switcher |
+| `.cursor/rules/meavo-style-guide.mdc` | Brand palette, UI conventions, tool card icons |
+| [meavo.com style guide](https://meavo.com/style-guide) | Official brand reference (PDF) |
 | `scripts/*.sql` headers | When to use targeted migrations |
 | `.env.example` | Required and optional env vars |
 

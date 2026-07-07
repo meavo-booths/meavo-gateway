@@ -2,26 +2,37 @@
 
 Company tools dashboard for [meavo.app](https://meavo.app). Users sign in and open the apps they have access to (e.g. Vacation Tracker at hols.meavo.app).
 
-Gateway is the **source of truth** for users, teams, and tool access. [Vacation Tracker](https://github.com/meavo-booths/hols) connects to the **same Neon database** for shared users and teams.
+Gateway is the **source of truth** for users, teams, and tool access. All Meavo apps connect to the **same Neon database** for shared users, teams, and tool card access.
+
+For patterns when building or extending Meavo apps, see **[AGENTS.md](./AGENTS.md)**.
 
 ## Shared database
 
-Both apps use one Postgres database (gateway's Neon):
+All apps use one Postgres database (Neon). The canonical Prisma schema lives in **[meavo-db](https://github.com/meavo-booths/meavo-db)** — that is the **only** repo allowed to alter database structure. App repos consume `@meavo/db` and run `prisma generate` only; `npm run db:push` is disabled in gateway to prevent accidental drops of other apps' tables.
 
-| App | Manages in DB |
-|-----|----------------|
-| **meavo-gateway** | Users, teams, tool cards, access |
-| **hols** | Vacation requests, allowance overrides (reads users/teams) |
+| App | Domain | Manages in DB |
+|-----|--------|----------------|
+| **meavo-gateway** | meavo.app | Users, teams, tool cards, access, HR, notifications, sheet import |
+| **hols** | hols.meavo.app | Vacation requests, allowances, public holidays |
+| **assembly** | assembly.meavo.app | Questionnaires, submissions |
+| **sales** | sales.meavo.app | Deals, clients, products |
+| **mrp** | mrp.meavo.app | Materials, stock movements |
+| **factory** | factory.meavo.app | Production batches, stations |
+| **rp** | rp.meavo.app | RP-specific data |
 
-On Vercel, set **hols** `DATABASE_URL` to the **same value** as gateway.
+On Vercel, set each app's `DATABASE_URL` to the **same value** as gateway.
 
-After pointing hols at the gateway database, run once from the hols repo:
+### Schema changes
+
+1. Edit `prisma/schema.prisma` in [meavo-db](https://github.com/meavo-booths/meavo-db).
+2. Tag a release and bump `@meavo/db` in affected apps.
+3. Apply to a database from the canonical schema:
 
 ```bash
-npm run db:push
+npx prisma db push --schema node_modules/@meavo/db/prisma/schema.prisma
 ```
 
-That adds vacation-specific tables (`VacationRequest`, `UserAllowance`, etc.) to the shared database.
+For gateway-only tables when the installed schema lags, use targeted SQL in `scripts/*.sql` (see below).
 
 ## Local setup
 
@@ -30,23 +41,25 @@ cp .env.example .env
 # Edit DATABASE_URL, AUTH_SECRET, ADMIN_EMAILS, ADMIN_PASSWORD
 
 npm install
-npm run db:push
+npx prisma db push --schema node_modules/@meavo/db/prisma/schema.prisma
 npm run db:seed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-For local hols dev, use the same `DATABASE_URL` in hols `.env`, then `npm run db:push` in hols.
+For local hols dev, use the same `DATABASE_URL` in hols `.env`. Schema changes go through meavo-db — do not run `db:push` from individual app repos unless you are working in the meavo-db repo itself.
 
 ## Deploy to Vercel
 
 1. Import the repo in Vercel → new project.
-2. Add **Neon Postgres** (this database is shared with hols).
+2. Add **Neon Postgres** (this database is shared with all Meavo apps).
 3. Set environment variables:
    - `DATABASE_URL`
    - `AUTH_SECRET` — `openssl rand -base64 32`
    - `AUTH_URL` — `https://meavo.app`
+   - `MEAVO_APP_KEY` — `gateway`
+   - `GATEWAY_URL` — `https://meavo.app`
    - `ADMIN_EMAILS`
    - `HR_ACCESS_GRANTOR_EMAIL` — comma-separated emails; only these users can grant or revoke HR access in Admin
    - `ADMIN_PASSWORD` (for initial seed only)
@@ -70,23 +83,25 @@ chmod +x scripts/setup-production-db.sh
 npm run db:setup
 ```
 
+`db:setup` runs `prisma db push` against the installed `@meavo/db` schema, then seeds admin and tool cards.
+
 5. Add domain **meavo.app** in Vercel → Settings → Domains.
-6. Point **hols** `DATABASE_URL` at this same Neon connection string (see hols README).
+6. Point every satellite app's `DATABASE_URL` at this same Neon connection string.
 
 ## Admin
 
 - **Users** — create accounts, assign teams, reset passwords, grant Admin / HR access
 - **Teams** — name, colour, yearly allowance (days)
-- **Tool cards** — grant access; Vacation Tracker card controls hols login
+- **Tool cards** — grant access; APP_ACCESS cards control satellite app login
 - **Notifications** — recent email delivery log (processed by gateway cron)
 
 ## Email notifications
 
-Gateway owns the notification **outbox** and sends email via Resend. Hols and assembly enqueue events into the same database; a Vercel Cron job on gateway (`/api/cron/process-notifications`, every 5 minutes) delivers them.
+Gateway owns the notification **outbox** and sends email via Resend. Satellite apps enqueue events into the same database; a Vercel Cron job on gateway (`/api/cron/process-notifications`, every 5 minutes) delivers them.
 
 Phase 1 events: vacation request/approve/reject (hols), questionnaire submitted (assembly), user created and employee hired/contract ended (gateway). Admins can enable or disable each event under **Admin → Notifications**.
 
-Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY` on hols or assembly.
+Satellite apps only need `DATABASE_URL` — no `RESEND_API_KEY`. Copy `src/lib/notifications/enqueue.ts` from assembly into each app that sends notifications (see AGENTS.md §10).
 
 ## Google Sheets import
 
@@ -107,16 +122,15 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" \
 
 ### Database migration (`GatewaySheetRecord`)
 
-Gateway, hols, and assembly share one Neon database. The gateway `prisma/schema.prisma` may be **behind** the assembly repo (fewer questionnaire models). A full `npm run db:push` from gateway can try to **drop** assembly tables — Prisma will warn about data loss. Use the targeted SQL script instead:
+Use the targeted SQL script when adding gateway-only tables:
 
 ```bash
 cd meavo-gateway
-npx prisma db execute --file scripts/add-gateway-sheet-record.sql --schema prisma/schema.prisma
+npx prisma db execute --file scripts/add-gateway-sheet-record.sql \
+  --schema node_modules/@meavo/db/prisma/schema.prisma
 ```
 
 `SheetImportState` already exists (assembly uses id `"default"`; gateway uses `"gateway"`).
-
-If your local schema includes **all** app models and `db:push` shows no destructive changes, `npm run db:push` is also fine.
 
 ## Weekly holiday Slack digest
 
@@ -135,13 +149,12 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" \
 
 The message lists **approved** vacation requests that overlap the current week (Mon–Sun in `HOLIDAY_DIGEST_TIMEZONE`), with employee name, team, dates, and duration.
 
-After adding notification tables, run the targeted SQL script (safe when gateway schema lags assembly/hols):
+After adding notification tables, run the targeted SQL script:
 
 ```bash
-npx prisma db execute --file scripts/add-notification-tables.sql --schema prisma/schema.prisma
+npx prisma db execute --file scripts/add-notification-tables.sql \
+  --schema node_modules/@meavo/db/prisma/schema.prisma
 ```
-
-Do **not** run a full `db:push` from gateway alone if the schema is missing assembly models.
 
 ## HR (confidential)
 
@@ -155,9 +168,7 @@ The `/hr` page is an employee database for users with **HR access** (separate fr
 
 Grant HR access when creating a user or via **Manage access** on the Admin users list. Only users whose emails are listed in `HR_ACCESS_GRANTOR_EMAIL` (comma-separated) see the HR checkbox and can change HR access.
 
-After deploying HR schema changes, run `npm run db:push` from **either** repo against the shared Neon database (hols schema includes all tables). Do not push from gateway alone if the schema is missing vacation models.
-
-**Important:** Gateway, hols, and assembly share one database. Always use a schema that includes **all** app models (gateway + hols + assembly) before `db:push`, or you risk dropping tables from the other apps.
+HR schema changes go through [meavo-db](https://github.com/meavo-booths/meavo-db) — apply with `npx prisma db push --schema node_modules/@meavo/db/prisma/schema.prisma` after bumping the dependency.
 
 ## Related apps
 
@@ -166,3 +177,8 @@ After deploying HR schema changes, run `npm run db:push` from **either** repo ag
 | Gateway | [meavo.app](https://meavo.app) | [meavo-booths/meavo-gateway](https://github.com/meavo-booths/meavo-gateway) |
 | Vacation Tracker | [hols.meavo.app](https://hols.meavo.app) | [meavo-booths/hols](https://github.com/meavo-booths/hols) |
 | Assembly | [assembly.meavo.app](https://assembly.meavo.app) | [meavo-booths/assembly](https://github.com/meavo-booths/assembly) |
+| Sales | [sales.meavo.app](https://sales.meavo.app) | [meavo-booths/meavo-sales](https://github.com/meavo-booths/meavo-sales) |
+| MRP | [mrp.meavo.app](https://mrp.meavo.app) | [meavo-booths/meavo-mrp](https://github.com/meavo-booths/meavo-mrp) |
+| Factory | [factory.meavo.app](https://factory.meavo.app) | [meavo-booths/Meavo-Factory](https://github.com/meavo-booths/Meavo-Factory) |
+| Schema | — | [meavo-booths/meavo-db](https://github.com/meavo-booths/meavo-db) |
+| Navigation | — | [meavo-booths/meavo-navigation](https://github.com/meavo-booths/meavo-navigation) |

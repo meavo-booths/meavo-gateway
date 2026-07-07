@@ -1,5 +1,5 @@
 -- Targeted migration: GatewaySheetRecord only.
--- Safe to run when gateway prisma/schema.prisma is behind assembly satellite models.
+-- Safe to run when the installed @meavo/db schema is behind other apps.
 -- Do NOT run a full `prisma db push` from gateway alone in that case — it can drop assembly tables.
 
 CREATE TABLE IF NOT EXISTS "GatewaySheetRecord" (

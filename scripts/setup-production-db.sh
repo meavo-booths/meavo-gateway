@@ -133,7 +133,7 @@ if is_empty_env "$DATABASE_URL"; then
   echo "  5. Re-run: vercel env pull $ENV_FILE --environment=production --yes"
   echo "  6. Re-run: npm run db:setup"
   echo ""
-  echo "Or fix locally only (for db:push / db:seed on this machine):"
+  echo "Or fix locally only (for schema push / db:seed on this machine):"
   echo "  Add to .env.local:"
   echo '    DATABASE_URL="postgresql://..."'
   echo "  Then re-run: npm run db:setup"
@@ -159,8 +159,8 @@ printf 'DATABASE_URL="%s"\n' "$DATABASE_URL" >> .env.tmp
 mv .env.tmp .env
 
 echo "==> Using Postgres URL from Vercel/local env (${#DATABASE_URL} chars)"
-echo "==> Creating tables (db:push)"
-npm run db:push
+echo "==> Creating tables (prisma db push via @meavo/db canonical schema)"
+npx prisma db push --schema node_modules/@meavo/db/prisma/schema.prisma
 
 echo "==> Seeding admin and Vacation Tracker card (db:seed)"
 npm run db:seed

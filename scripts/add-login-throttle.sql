@@ -1,5 +1,5 @@
 -- Shared login throttle table used by gateway, hols, and assembly partner login.
--- Apply with: npx prisma db execute --file scripts/add-login-throttle.sql --schema prisma/schema.prisma
+-- Apply with: npx prisma db execute --file scripts/add-login-throttle.sql --schema node_modules/@meavo/db/prisma/schema.prisma
 
 CREATE TABLE IF NOT EXISTS "LoginThrottle" (
     "key" TEXT NOT NULL,

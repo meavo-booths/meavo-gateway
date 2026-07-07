@@ -1,5 +1,5 @@
 -- Targeted migration: revenue fields on GatewaySheetRecord.
--- Safe to run when gateway prisma/schema.prisma is behind assembly satellite models.
+-- Safe to run when the installed @meavo/db schema is behind other apps.
 
 ALTER TABLE "GatewaySheetRecord"
   ADD COLUMN IF NOT EXISTS "invoiceDate" TIMESTAMP(3),
