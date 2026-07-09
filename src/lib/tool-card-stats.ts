@@ -146,6 +146,11 @@ async function getClockStats(): Promise<ToolCardStats> {
   return { lines: [] };
 }
 
+async function getTasksStats(): Promise<ToolCardStats> {
+  const open = await prisma.task.count({ where: { status: "OPEN" } });
+  return { lines: [`${open} open task${open === 1 ? "" : "s"}`] };
+}
+
 const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   assembly: getAssemblyStats,
   hols: getHolsStats,
@@ -154,6 +159,7 @@ const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   factory: getFactoryStats,
   rp: getRpStats,
   clock: getClockStats,
+  tasks: getTasksStats,
 };
 
 export async function getToolCardStats(

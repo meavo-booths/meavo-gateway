@@ -258,6 +258,42 @@ async function main() {
     },
   });
 
+  const tasksCard = await prisma.toolCard.upsert({
+    where: { id: "seed-tasks-tool" },
+    update: {
+      name: "Tasks",
+      description: "Team task management — personal lists and shared boards.",
+      url: "https://tasks.meavo.app",
+      iconKey: "tasks",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "tasks",
+      sortOrder: 8,
+      isActive: true,
+    },
+    create: {
+      id: "seed-tasks-tool",
+      name: "Tasks",
+      description: "Team task management — personal lists and shared boards.",
+      url: "https://tasks.meavo.app",
+      iconKey: "tasks",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "tasks",
+      sortOrder: 8,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: tasksCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: tasksCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -272,7 +308,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory and RP cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory, RP and Tasks cards.`);
 }
 
 main()
