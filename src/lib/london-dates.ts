@@ -28,6 +28,12 @@ function addDays(parts: DateParts, days: number): DateParts {
   };
 }
 
+/** UTC midnight for the first day of the current London calendar month. */
+export function londonMonthStartUtc(now = new Date()): Date {
+  const today = getZonedDateParts(LONDON_TIMEZONE, now);
+  return partsToStoredDate({ year: today.year, month: today.month, day: 1 });
+}
+
 /** UTC midnight for a London calendar day, optionally offset by whole days. */
 export function londonCalendarDayUtc(offsetDays = 0, now = new Date()): Date {
   const today = getZonedDateParts(LONDON_TIMEZONE, now);

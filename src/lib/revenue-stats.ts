@@ -1,4 +1,4 @@
-import { LONDON_TIMEZONE, londonCalendarDayUtc } from "@/lib/london-dates";
+import { LONDON_TIMEZONE, londonCalendarDayUtc, londonMonthStartUtc } from "@/lib/london-dates";
 import { prisma } from "@/lib/prisma";
 
 export type HomeRevenueStats = {
@@ -7,6 +7,7 @@ export type HomeRevenueStats = {
   biggestDeal: { revenue: number; salesRep: string; dealId: string } | null;
   lastWeekRevenue: number;
   lastWeekLabel: string;
+  thisMonthRevenue: number;
 };
 
 const eurFormatter = new Intl.NumberFormat("en-GB", {
@@ -68,6 +69,14 @@ export function getLastCalendarWeekRange(now = new Date()): { start: Date; end: 
   };
 }
 
+/** Start of the current London calendar month through yesterday (inclusive). */
+export function getMonthToDateRange(now = new Date()): { start: Date; end: Date } {
+  return {
+    start: londonMonthStartUtc(now),
+    end: londonCalendarDayUtc(-1, now),
+  };
+}
+
 function decimalToNumber(value: { toNumber(): number } | null | undefined): number {
   if (!value) return 0;
   return value.toNumber();
@@ -86,9 +95,11 @@ function formatWeekLabel(start: Date, end: Date): string {
 export async function getHomeRevenueStats(now = new Date()): Promise<HomeRevenueStats> {
   const { date: referenceDay, label: referenceDayLabel } = getRevenueReferenceDay(now);
   const { start: lastWeekStart, end: lastWeekEnd } = getLastCalendarWeekRange(now);
+  const { start: monthStart, end: monthEnd } = getMonthToDateRange(now);
+  const monthRangeValid = monthEnd.getTime() >= monthStart.getTime();
 
   try {
-    const [referenceDaySum, biggestDeal, lastWeekSum] = await Promise.all([
+    const [referenceDaySum, biggestDeal, lastWeekSum, thisMonthSum] = await Promise.all([
       prisma.gatewaySheetRecord.aggregate({
         where: { invoiceDate: referenceDay },
         _sum: { revenueEur: true },
@@ -114,10 +125,22 @@ export async function getHomeRevenueStats(now = new Date()): Promise<HomeRevenue
         },
         _sum: { revenueEur: true },
       }),
+      monthRangeValid
+        ? prisma.gatewaySheetRecord.aggregate({
+            where: {
+              invoiceDate: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
+            },
+            _sum: { revenueEur: true },
+          })
+        : Promise.resolve({ _sum: { revenueEur: null } }),
     ]);
 
     const referenceDayRevenue = decimalToNumber(referenceDaySum._sum.revenueEur);
     const lastWeekRevenue = decimalToNumber(lastWeekSum._sum.revenueEur);
+    const thisMonthRevenue = decimalToNumber(thisMonthSum._sum.revenueEur);
 
     return {
       referenceDayLabel,
@@ -132,6 +155,7 @@ export async function getHomeRevenueStats(now = new Date()): Promise<HomeRevenue
           : null,
       lastWeekRevenue,
       lastWeekLabel: formatWeekLabel(lastWeekStart, lastWeekEnd),
+      thisMonthRevenue,
     };
   } catch (error) {
     console.error("Failed to load home revenue stats:", error);
@@ -141,6 +165,7 @@ export async function getHomeRevenueStats(now = new Date()): Promise<HomeRevenue
       biggestDeal: null,
       lastWeekRevenue: 0,
       lastWeekLabel: formatWeekLabel(lastWeekStart, lastWeekEnd),
+      thisMonthRevenue: 0,
     };
   }
 }

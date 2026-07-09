@@ -41,6 +41,7 @@ export function RevenueSummaryCard({ stats }: { stats: HomeRevenueStats }) {
           label={`Last week (${stats.lastWeekLabel})`}
           value={formatEur(stats.lastWeekRevenue)}
         />
+        <StatSegment label="This month" value={formatEur(stats.thisMonthRevenue)} />
       </div>
     </Card>
   );
