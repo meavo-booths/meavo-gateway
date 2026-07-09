@@ -1,8 +1,8 @@
 /**
- * Generate black, gold, and cool colour variants for all base tool-card icons.
+ * Generate colour variants (black, gold, blue, pink) for all base tool-card icons.
  * Run: npx tsx scripts/generate-icon-color-variants.ts
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ICONS_DIR = join(process.cwd(), "public/icons/tool-cards");
@@ -13,8 +13,11 @@ const GREEN_FG = "#FAF9F7";
 const VARIANTS = {
   black: { bg: "#212121", fg: "#FAF9F7" },
   gold: { bg: "#F4E3B1", fg: "#212121" },
-  cool: { bg: "#E1E9EC", fg: "#212121" },
+  blue: { bg: "#E1E9EC", fg: "#212121" },
+  pink: { bg: "#EEDCDC", fg: "#212121" },
 } as const;
+
+const DEPRECATED_SUFFIXES = ["--cool"];
 
 function recolorSvg(svg: string, bg: string, fg: string): string {
   return svg
@@ -33,10 +36,21 @@ function isBaseIcon(filename: string): boolean {
 function main() {
   const files = readdirSync(ICONS_DIR).filter(isBaseIcon);
   let written = 0;
+  let removed = 0;
 
   for (const file of files) {
     const baseName = file.replace(/\.svg$/, "");
     const source = readFileSync(join(ICONS_DIR, file), "utf8");
+
+    for (const suffix of DEPRECATED_SUFFIXES) {
+      const deprecatedPath = join(ICONS_DIR, `${baseName}${suffix}.svg`);
+      try {
+        unlinkSync(deprecatedPath);
+        removed++;
+      } catch {
+        // Already removed or never generated.
+      }
+    }
 
     for (const [variant, colors] of Object.entries(VARIANTS)) {
       const outName = `${baseName}--${variant}.svg`;
@@ -46,7 +60,7 @@ function main() {
     }
   }
 
-  console.log(`Generated ${written} colour variants from ${files.length} base icons.`);
+  console.log(`Generated ${written} colour variants from ${files.length} base icons (removed ${removed} deprecated files).`);
 }
 
 main();

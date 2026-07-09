@@ -1,4 +1,4 @@
-export type IconVariant = "green" | "black" | "gold" | "cool";
+export type IconVariant = "green" | "black" | "gold" | "blue" | "pink";
 export type IconSection = "apps" | "general";
 
 export type ToolCardIcon = {
@@ -20,7 +20,8 @@ const VARIANTS: { variant: IconVariant; suffix: string; labelSuffix: string }[] 
   { variant: "green", suffix: "", labelSuffix: "" },
   { variant: "black", suffix: "--black", labelSuffix: " (Black)" },
   { variant: "gold", suffix: "--gold", labelSuffix: " (Gold)" },
-  { variant: "cool", suffix: "--cool", labelSuffix: " (Cool)" },
+  { variant: "blue", suffix: "--blue", labelSuffix: " (Blue)" },
+  { variant: "pink", suffix: "--pink", labelSuffix: " (Pink)" },
 ];
 
 /** Named icons for apps, modules, and common tool topics. */
@@ -94,7 +95,8 @@ export const ICON_VARIANTS: { key: IconVariant; label: string }[] = [
   { key: "green", label: "Green" },
   { key: "black", label: "Black" },
   { key: "gold", label: "Gold" },
-  { key: "cool", label: "Cool" },
+  { key: "blue", label: "Blue" },
+  { key: "pink", label: "Pink" },
 ];
 
 export function isValidIconKey(key: string | null | undefined): boolean {

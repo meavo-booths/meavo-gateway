@@ -43,6 +43,6 @@ Defined in `tailwind.config.ts` as `bg-brand-600` / `hover:bg-brand-700`.
 
 ## Icon library (tool cards)
 
-Official SVG icons: [Google Drive folder](https://drive.google.com/drive/folders/16Oo09-3I3nsttE92-uOdl5aG64Sn4qpm). Bundled copies live in `public/icons/tool-cards/`; manifest in `src/lib/tool-card-icons.ts`. Base icons use green circle `#0C8F61` with white symbol `#FAF9F7`. Colour variants (black `#212121`, gold `#F4E3B1`, cool `#E1E9EC`) are generated via `scripts/generate-icon-color-variants.ts`.
+Official SVG icons: [Google Drive folder](https://drive.google.com/drive/folders/16Oo09-3I3nsttE92-uOdl5aG64Sn4qpm). Bundled copies live in `public/icons/tool-cards/`; manifest in `src/lib/tool-card-icons.ts`. Base icons use green circle `#0C8F61` with white symbol `#FAF9F7`. Colour variants (black `#212121`, gold `#F4E3B1`, blue `#E1E9EC`, pink `#EEDCDC`) are generated via `scripts/generate-icon-color-variants.ts`.
 
 When adding new UI, align with the guide’s warm, minimal, professional tone. Prefer the palette above over ad-hoc colors.
