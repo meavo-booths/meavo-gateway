@@ -147,8 +147,21 @@ async function getClockStats(): Promise<ToolCardStats> {
 }
 
 async function getTasksStats(): Promise<ToolCardStats> {
-  const open = await prisma.task.count({ where: { status: "OPEN" } });
-  return { lines: [`${open} open task${open === 1 ? "" : "s"}`] };
+  // Raw query: Task tables are owned by the tasks app and absent from
+  // gateway's Prisma schema (which is a subset of the shared DB).
+  const rows = await prisma.$queryRaw<{ open: bigint }[]>`
+    SELECT COUNT(*) AS open FROM "Task" WHERE "status" = 'OPEN'
+  `;
+  const open = Number(rows[0]?.open ?? 0);
+
+  return {
+    lines: [
+      {
+        value: String(open),
+        label: open === 1 ? "open task" : "open tasks",
+      },
+    ],
+  };
 }
 
 const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
