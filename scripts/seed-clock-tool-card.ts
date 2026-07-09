@@ -11,7 +11,7 @@ const CARD = {
   name: "Clock-In",
   description: "RFID factory clock-in kiosk and timesheets.",
   url: "https://clock.meavo.app",
-  iconKey: "schedule",
+  iconKey: "clock-in",
   linkedAppKey: "clock",
   sortOrder: 6,
 };

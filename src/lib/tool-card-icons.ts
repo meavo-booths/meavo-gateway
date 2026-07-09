@@ -1,39 +1,100 @@
+export type IconVariant = "green" | "black" | "gold" | "cool";
+export type IconSection = "apps" | "general";
+
 export type ToolCardIcon = {
   key: string;
   label: string;
   file: string;
+  variant: IconVariant;
+  baseKey: string;
+  section: IconSection;
 };
+
+type BaseIcon = {
+  baseKey: string;
+  label: string;
+  section: IconSection;
+};
+
+const VARIANTS: { variant: IconVariant; suffix: string; labelSuffix: string }[] = [
+  { variant: "green", suffix: "", labelSuffix: "" },
+  { variant: "black", suffix: "--black", labelSuffix: " (Black)" },
+  { variant: "gold", suffix: "--gold", labelSuffix: " (Gold)" },
+  { variant: "cool", suffix: "--cool", labelSuffix: " (Cool)" },
+];
+
+/** Named icons for apps, modules, and common tool topics. */
+const NAMED_ICONS: BaseIcon[] = [
+  { baseKey: "clock-in", label: "Clock-In", section: "apps" },
+  { baseKey: "tasks", label: "Tasks", section: "apps" },
+  { baseKey: "vacation", label: "Vacation", section: "apps" },
+  { baseKey: "assembly", label: "Assembly", section: "apps" },
+  { baseKey: "sales", label: "Sales", section: "apps" },
+  { baseKey: "mrp", label: "MRP", section: "apps" },
+  { baseKey: "factory", label: "Factory", section: "apps" },
+  { baseKey: "hr", label: "HR", section: "apps" },
+  { baseKey: "reports", label: "Reports", section: "apps" },
+  { baseKey: "library", label: "Library", section: "apps" },
+  { baseKey: "notifications", label: "Notifications", section: "apps" },
+  { baseKey: "levelling", label: "Levelling", section: "apps" },
+  { baseKey: "handover", label: "Handover", section: "apps" },
+  { baseKey: "replacement", label: "Replacement", section: "apps" },
+  { baseKey: "door", label: "Door", section: "apps" },
+  { baseKey: "cleaning", label: "Cleaning", section: "apps" },
+];
+
+/** Generic icons from the MEAVO style guide library. */
+const FRAME_ICONS: BaseIcon[] = [
+  { baseKey: "frame-1000008429", label: "Icon 1", section: "general" },
+  { baseKey: "frame-1000008430", label: "Icon 2", section: "general" },
+  { baseKey: "frame-1000008432", label: "Icon 3", section: "general" },
+  { baseKey: "frame-1000008969", label: "Icon 4", section: "general" },
+  { baseKey: "frame-1000008970", label: "Icon 5", section: "general" },
+  { baseKey: "frame-1000008971", label: "Icon 6", section: "general" },
+  { baseKey: "frame-1000008972", label: "Icon 7", section: "general" },
+  { baseKey: "frame-1000008973", label: "Icon 8", section: "general" },
+  { baseKey: "frame-1000008974", label: "Icon 9", section: "general" },
+  { baseKey: "frame-1000008975", label: "Icon 10", section: "general" },
+  { baseKey: "frame-1000008976", label: "Icon 11", section: "general" },
+  { baseKey: "frame-1000008977", label: "Icon 12", section: "general" },
+  { baseKey: "frame-1000008978", label: "Icon 13", section: "general" },
+  { baseKey: "frame-1000008979", label: "Icon 14", section: "general" },
+  { baseKey: "frame-1000008980", label: "Icon 15", section: "general" },
+  { baseKey: "frame-1000008981", label: "Icon 16", section: "general" },
+  { baseKey: "frame-1000008982", label: "Icon 17", section: "general" },
+  { baseKey: "frame-1000008983", label: "Icon 18", section: "general" },
+  { baseKey: "frame-1000008984", label: "Icon 19", section: "general" },
+  { baseKey: "frame-1000008985", label: "Icon 20", section: "general" },
+];
+
+function buildToolCardIcons(bases: BaseIcon[]): ToolCardIcon[] {
+  const icons: ToolCardIcon[] = [];
+  for (const base of bases) {
+    for (const { variant, suffix, labelSuffix } of VARIANTS) {
+      icons.push({
+        key: `${base.baseKey}${suffix}`,
+        label: `${base.label}${labelSuffix}`,
+        file: `/icons/tool-cards/${base.baseKey}${suffix}.svg`,
+        variant,
+        baseKey: base.baseKey,
+        section: base.section,
+      });
+    }
+  }
+  return icons;
+}
 
 /** MEAVO style guide icon library — bundled from Google Drive plus custom tool icons. */
 export const TOOL_CARD_ICONS: ToolCardIcon[] = [
-  { key: "frame-1000008429", label: "Icon 1", file: "/icons/tool-cards/frame-1000008429.svg" },
-  { key: "frame-1000008430", label: "Icon 2", file: "/icons/tool-cards/frame-1000008430.svg" },
-  { key: "frame-1000008432", label: "Icon 3", file: "/icons/tool-cards/frame-1000008432.svg" },
-  { key: "frame-1000008969", label: "Icon 4", file: "/icons/tool-cards/frame-1000008969.svg" },
-  { key: "frame-1000008970", label: "Icon 5", file: "/icons/tool-cards/frame-1000008970.svg" },
-  { key: "frame-1000008971", label: "Icon 6", file: "/icons/tool-cards/frame-1000008971.svg" },
-  { key: "frame-1000008972", label: "Icon 7", file: "/icons/tool-cards/frame-1000008972.svg" },
-  { key: "frame-1000008973", label: "Icon 8", file: "/icons/tool-cards/frame-1000008973.svg" },
-  { key: "frame-1000008974", label: "Icon 9", file: "/icons/tool-cards/frame-1000008974.svg" },
-  { key: "frame-1000008975", label: "Icon 10", file: "/icons/tool-cards/frame-1000008975.svg" },
-  { key: "frame-1000008976", label: "Icon 11", file: "/icons/tool-cards/frame-1000008976.svg" },
-  { key: "frame-1000008977", label: "Icon 12", file: "/icons/tool-cards/frame-1000008977.svg" },
-  { key: "frame-1000008978", label: "Icon 13", file: "/icons/tool-cards/frame-1000008978.svg" },
-  { key: "frame-1000008979", label: "Icon 14", file: "/icons/tool-cards/frame-1000008979.svg" },
-  { key: "frame-1000008980", label: "Icon 15", file: "/icons/tool-cards/frame-1000008980.svg" },
-  { key: "frame-1000008981", label: "Icon 16", file: "/icons/tool-cards/frame-1000008981.svg" },
-  { key: "frame-1000008982", label: "Icon 17", file: "/icons/tool-cards/frame-1000008982.svg" },
-  { key: "frame-1000008983", label: "Icon 18", file: "/icons/tool-cards/frame-1000008983.svg" },
-  { key: "frame-1000008984", label: "Icon 19", file: "/icons/tool-cards/frame-1000008984.svg" },
-  { key: "frame-1000008985", label: "Icon 20", file: "/icons/tool-cards/frame-1000008985.svg" },
-  { key: "vacation", label: "Vacation", file: "/icons/tool-cards/vacation.svg" },
-  { key: "assembly", label: "Assembly", file: "/icons/tool-cards/assembly.svg" },
-  { key: "levelling", label: "Levelling", file: "/icons/tool-cards/levelling.svg" },
-  { key: "handover", label: "Handover", file: "/icons/tool-cards/handover.svg" },
-  { key: "replacement", label: "Replacement", file: "/icons/tool-cards/replacement.svg" },
-  { key: "factory", label: "Factory", file: "/icons/tool-cards/factory.svg" },
-  { key: "door", label: "Door", file: "/icons/tool-cards/door.svg" },
-  { key: "cleaning", label: "Cleaning", file: "/icons/tool-cards/cleaning.svg" },
+  ...buildToolCardIcons(NAMED_ICONS),
+  ...buildToolCardIcons(FRAME_ICONS),
+];
+
+export const ICON_VARIANTS: { key: IconVariant; label: string }[] = [
+  { key: "green", label: "Green" },
+  { key: "black", label: "Black" },
+  { key: "gold", label: "Gold" },
+  { key: "cool", label: "Cool" },
 ];
 
 export function isValidIconKey(key: string | null | undefined): boolean {
