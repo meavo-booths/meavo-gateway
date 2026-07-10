@@ -115,6 +115,7 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
     }
 
     const headers = rows[0] ?? [];
+    const importStartedAt = new Date();
     let imported = 0;
 
     for (let i = 1; i < rows.length; i += 1) {
@@ -151,6 +152,14 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
         },
       });
       imported += 1;
+    }
+
+    // Rows whose rowKey vanished from the sheet (e.g. a deal was re-keyed from
+    // a PO number to an INV number) would otherwise linger and double-count.
+    if (imported > 0) {
+      await prisma.gatewaySheetRecord.deleteMany({
+        where: { lastImportedAt: { lt: importStartedAt } },
+      });
     }
 
     await recordImportState({ rowCount: imported, errorMessage: null });
