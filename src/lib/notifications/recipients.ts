@@ -23,6 +23,13 @@ function dedupeRecipients(recipients: NotificationRecipient[]): NotificationReci
   });
 }
 
+export async function allUsers(): Promise<NotificationRecipient[]> {
+  const users = await prisma.user.findMany({
+    select: { id: true, email: true, name: true },
+  });
+  return dedupeRecipients(users.map(toRecipient));
+}
+
 export async function userById(userId: string): Promise<NotificationRecipient | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

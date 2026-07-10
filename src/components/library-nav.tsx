@@ -7,6 +7,7 @@ const tabs = [
   { href: "/library/market-dashboard", label: "Marketing" },
   { href: "/library/revenue", label: "Revenue" },
   { href: "/library/culture-hub", label: "Culture Hub" },
+  { href: "/library/app-news", label: "App News" },
 ];
 
 export function LibraryNav() {

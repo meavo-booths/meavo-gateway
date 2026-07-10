@@ -1,6 +1,7 @@
 import { TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  allUsers,
   assemblyOperators,
   hrUsers,
   salesOperators,
@@ -14,6 +15,7 @@ import type {
 } from "@/lib/notifications/types";
 import { assemblyUrl, gatewayUrl, holsUrl, salesUrl, tasksUrl } from "@/lib/notifications/urls";
 import { buttonLink, emailLayout, escapeHtml } from "@/lib/notifications/templates/layout";
+import { parseTemplateMarkup, type InlineRun } from "@/lib/template-markup";
 
 export type NotificationEventHandler = {
   resolveRecipients: (payload: Record<string, unknown>) => Promise<NotificationRecipient[]>;
@@ -69,6 +71,64 @@ function requireString(payload: Record<string, unknown>, key: string): string {
     throw new Error(`Missing payload field: ${key}`);
   }
   return value;
+}
+
+async function loadAnnouncement(announcementId: string) {
+  const announcement = await prisma.appAnnouncement.findUnique({
+    where: { id: announcementId },
+  });
+  if (!announcement) throw new Error("Announcement not found");
+  return announcement;
+}
+
+function announcementRunsToHtml(runs: InlineRun[]): string {
+  return runs
+    .map((run) => (run.bold ? `<strong>${escapeHtml(run.text)}</strong>` : escapeHtml(run.text)))
+    .join("");
+}
+
+/** Template markup → email-safe HTML (inline styles only, no Tailwind). */
+function announcementBodyToEmailHtml(body: string): string {
+  const parts: string[] = [];
+  let bullets: string[] = [];
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    parts.push(
+      `<ul style="margin: 8px 0; padding-left: 20px;">${bullets.join("")}</ul>`,
+    );
+    bullets = [];
+  };
+
+  for (const block of parseTemplateMarkup(body)) {
+    if (block.type === "bullet") {
+      bullets.push(`<li style="margin: 2px 0;">${announcementRunsToHtml(block.runs)}</li>`);
+      continue;
+    }
+    flushBullets();
+    if (block.type === "blank") continue;
+    const content = announcementRunsToHtml(block.runs);
+    if (block.type === "title" || block.type === "heading") {
+      parts.push(`<p style="font-size: 16px; font-weight: 700; margin: 16px 0 4px;">${content}</p>`);
+    } else {
+      parts.push(`<p style="margin: 8px 0;">${content}</p>`);
+    }
+  }
+  flushBullets();
+  return parts.join("");
+}
+
+function announcementBodyToPlainText(body: string): string {
+  const lines: string[] = [];
+  for (const block of parseTemplateMarkup(body)) {
+    if (block.type === "blank") {
+      lines.push("");
+      continue;
+    }
+    const content = block.runs.map((run) => run.text).join("");
+    lines.push(block.type === "bullet" ? `- ${content}` : content);
+  }
+  return lines.join("\n").trim();
 }
 
 async function loadTask(taskId: string) {
@@ -458,6 +518,40 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         title: "Contract ended",
         body: `${employeeName}'s contract ended on ${endDate}.`,
         url: `${gatewayUrl()}/hr/employees`,
+      };
+    },
+  },
+
+  "gateway.news.published": {
+    async resolveRecipients() {
+      return allUsers();
+    },
+    async render(payload) {
+      const announcement = await loadAnnouncement(requireString(payload, "announcementId"));
+      const url = `${gatewayUrl()}/library/app-news`;
+      const subject = `MEAVO news: ${announcement.title}`;
+      const text = [
+        announcement.title,
+        "",
+        announcementBodyToPlainText(announcement.body),
+        "",
+        `Read in the Library: ${url}`,
+      ].join("\n");
+      const html = emailLayout(`
+        <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(announcement.title)}</h1>
+        ${announcementBodyToEmailHtml(announcement.body)}
+        ${buttonLink(url, "Open App News")}
+      `);
+      return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const announcement = await loadAnnouncement(requireString(payload, "announcementId"));
+      const plain = announcementBodyToPlainText(announcement.body).replace(/\s+/g, " ").trim();
+      const body = plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
+      return {
+        title: announcement.title,
+        body,
+        url: `${gatewayUrl()}/library/app-news`,
       };
     },
   },

@@ -57,6 +57,13 @@ export const NOTIFICATION_EVENT_CATALOG: NotificationEventDefinition[] = [
     trigger: "HR ends contract (gateway)",
   },
   {
+    eventType: "gateway.news.published",
+    sourceApp: "gateway",
+    label: "App news published",
+    description: "Notify everyone when a new App News announcement is published.",
+    trigger: "Admin publishes an announcement (gateway library)",
+  },
+  {
     eventType: "tasks.task.assigned",
     sourceApp: "tasks",
     label: "Task assigned",
