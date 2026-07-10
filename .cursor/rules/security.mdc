@@ -1,0 +1,45 @@
+---
+description: Meavo security standards for meavo-gateway
+alwaysApply: true
+---
+
+# Security rules — Meavo org standard
+
+Org standard (see STANDARDS.md §4 in meavo-agent-templates). Deviations for this repo are listed at the bottom.
+
+## Auth at every layer
+
+- Verify auth independently in: middleware (pages), section layouts, Server Actions, and API routes.
+- Middleware passes `/api/*` through — never assume an API route is protected.
+- This repo's auth gates: `auth()` from `src/lib/auth.ts` (session), layout guards in `src/app/(app)/admin/layout.tsx` and `src/app/(app)/hr/layout.tsx`, `requireHr()` in `src/lib/hr-auth.ts`, and `isAdmin()` / `hasHrAccess()` / `canGrantHrAccess()` in `src/lib/permissions.ts`.
+- Tool card gating: gateway is the **issuer**, not a consumer — gateway login is not gated by `ToolCardAccess`. Gateway manages grants for satellite apps; stable card IDs live in `src/lib/tool-card-registry.ts` (`defaultCardId`, e.g. `seed-sales-tool`). Never look up a card by `linkedAppKey` at runtime.
+
+## Sessions & credentials
+
+- NextAuth v5 JWT sessions; refresh `systemRole` / `hrAccess` from DB in the JWT callback.
+- Passwords: bcryptjs 12 rounds, min 8 chars. Login throttling via shared `LoginThrottle` table.
+- Google OAuth is invite-only — user must already exist in the DB.
+
+## Routes & rendering
+
+- Cron routes: `CRON_SECRET` Bearer auth on every `/api/cron/*` handler.
+- `export const dynamic = "force-dynamic"` on authenticated layouts and DB-touching pages.
+- Never return stack traces to clients in production.
+
+## Headers & content
+
+- `next.config.ts` must set: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`.
+- Uploads: Vercel Blob, 10 MB limit, validate MIME + extension, stream downloads via authenticated route, sanitize filenames.
+- Embedded HTML: sandboxed same-origin iframe with CSP `sandbox allow-scripts`.
+
+## Secrets
+
+- No secrets in client code, comments, or committed files.
+- Document env var names in `.env.example` only — never values.
+
+## Repo-specific deviations
+
+- Gateway login is **not** gated by `ToolCardAccess` (the tool-card rule above applies to satellite apps; gateway is the grantor). Admins see all tool cards on the home page without individual grants.
+- `ADMIN_EMAILS` env var auto-promotes matching users to `SystemRole.ADMIN` on login.
+- `HR_ACCESS_GRANTOR_EMAIL` env var restricts who can grant/revoke HR access.
+- Library upload is additionally gated by marketing team membership (`MARKETING_TEAM_ID`) — see `canUploadLibraryAsset()` in `src/lib/permissions.ts`.

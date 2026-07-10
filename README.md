@@ -6,6 +6,17 @@ Gateway is the **source of truth** for users, teams, and tool access. All Meavo 
 
 For patterns when building or extending Meavo apps, see **[AGENTS.md](./AGENTS.md)**.
 
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [AGENTS.md](./AGENTS.md) | Org-wide Meavo app development guide (gateway is the reference implementation) |
+| [docs/architecture.md](./docs/architecture.md) | Stack, sibling repos, repository layout, data flow, crons, env vars |
+| [docs/domain.md](./docs/domain.md) | Business rules, roles/personas, mutation map |
+| [docs/data-model.md](./docs/data-model.md) | Gateway-owned database tables (schema lives in meavo-db) |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | PR process, code placement, schema-change workflow |
+| `.cursor/rules/` | Always-on agent rules: core stack, security, UI, domain, API |
+
 ## Shared database
 
 All apps use one Postgres database (Neon). The canonical Prisma schema lives in **[meavo-db](https://github.com/meavo-booths/meavo-db)** — that is the **only** repo allowed to alter database structure. App repos consume `@meavo/db` and run `prisma generate` only; `npm run db:push` is disabled in gateway to prevent accidental drops of other apps' tables.

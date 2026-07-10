@@ -1,0 +1,24 @@
+---
+description: Domain layer patterns for meavo-gateway
+globs:
+  - src/lib/**
+---
+
+# Domain module rules
+
+Business logic lives in flat modules under `src/lib/` (e.g. `hr-employee.ts`, `sheets-import.ts`, `revenue-stats.ts`, `salary.ts`) and `src/lib/notifications/` — **not** in route handlers, React components, or API route files.
+
+## Patterns
+
+1. Permission checks via `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAccess`, `canUploadLibraryAsset`) — resolve from DB, never trust the client.
+2. After Prisma writes that should email someone, enqueue via `src/lib/notifications/enqueue.ts` with a stable `idempotencyKey`; fire-and-forget with `.catch(console.error)`. Register new event types in `src/lib/notifications/event-catalog.ts` first.
+3. Tool card definitions come from `src/lib/tool-card-registry.ts` — stable seed IDs, never runtime `linkedAppKey` lookups.
+4. Reuse existing modules — search `src/lib/` before adding new files; one concern per file.
+
+## File naming
+
+Kebab-case, noun or noun-verb, one concern per file: `hr-employee.ts`, `sheet-columns.ts`, `login-throttle.ts`, `template-pdf.ts`.
+
+## Mutation map
+
+See `docs/domain.md` for permissions and the change → module map.

@@ -1,0 +1,56 @@
+---
+description: Core stack, layout, and guardrails for meavo-gateway
+alwaysApply: true
+---
+
+Environment: Next.js 15 App Router app at meavo.app — the Meavo company tools dashboard and the **source of truth for identity** (users, teams, tool cards, access). NOT a satellite app.
+
+## Stack
+
+- Next.js 15+ (App Router), TypeScript strict, React 19
+- Tailwind CSS 3 — in-house UI kit in `src/components/ui.tsx`, no external component libraries
+- Prisma 6 via `@meavo/db` (shared Neon Postgres; schema lives in the meavo-db repo)
+- NextAuth v5, JWT sessions — Credentials (bcryptjs) + invite-only Google
+- Vercel hosting; Vercel Blob (HR PDFs, library assets); Resend email; Google Sheets import; Slack webhook digest
+
+## Do NOT
+
+- Edit the Prisma schema in this repo — schema lives in [meavo-db](https://github.com/meavo-booths/meavo-db); `npm run db:push` is intentionally disabled
+- Run `prisma db push` with a stale schema — it can drop other apps' tables (one DB shared by all Meavo apps)
+- Send email from anywhere except the notifications processor (`src/lib/notifications/`) — all sends go through the outbox + cron
+- Import Prisma-backed auth in `src/middleware.ts` (edge) — middleware uses `src/lib/auth.config.ts` only
+- Add REST endpoints for mutations — use Server Actions in `src/app/actions/`; API routes are for cron, health, auth, and file streaming only
+- Look up tool cards by `linkedAppKey` at runtime — use stable `defaultCardId` from `src/lib/tool-card-registry.ts`
+- Allow non-HTTPS tool card URLs
+- Commit secrets or `.env*` files; document env var names in `.env.example` only
+
+## Code layout
+
+| Area | Path |
+|------|------|
+| Pages (authenticated) | `src/app/(app)/` — home, `admin/`, `hr/`, `library/`, `profile/` |
+| Server Actions | `src/app/actions/` |
+| API routes (cron/health/auth/streaming) | `src/app/api/` |
+| Domain logic + integrations | `src/lib/` (flat modules), `src/lib/notifications/` |
+| Auth | `src/lib/auth.ts`, `src/lib/auth.config.ts`, `src/middleware.ts` |
+| UI kit + feature components | `src/components/` (`ui.tsx`, `modal.tsx`) |
+| Targeted SQL migrations + seeds | `scripts/` |
+| Tests | N/A — no test suite; verify manually |
+
+## Data flow
+
+```
+Browser → Server Component page → Server Action (src/app/actions/)
+        → Prisma (@meavo/db → shared Neon Postgres)
+        → side effects: NotificationOutbox enqueue → cron → Resend
+                        Vercel Blob (uploads) / Google Sheets (import cron) / Slack (digest cron)
+```
+
+Every mutation that should email someone must enqueue via `src/lib/notifications/enqueue.ts` (fire-and-forget with `.catch(console.error)`), never send directly. Call `revalidatePath()` after writes.
+
+## Docs for agents
+
+- `AGENTS.md` — org-wide Meavo app development guide (this repo is the reference implementation)
+- `docs/architecture.md` — stack, siblings, data flow
+- `docs/domain.md` — business rules, permissions, mutation map
+- `docs/data-model.md` — gateway-owned database tables
