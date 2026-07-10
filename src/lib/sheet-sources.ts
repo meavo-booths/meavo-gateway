@@ -31,12 +31,6 @@ export function isSheetSourceId(value: FormDataEntryValue | null | undefined): v
   return typeof value === "string" && SHEET_SOURCE_BY_ID.has(value as SheetSourceId);
 }
 
-export function getSheetSource(id: SheetSourceId): SheetSourceDefinition {
-  const source = SHEET_SOURCE_BY_ID.get(id);
-  if (!source) throw new Error(`Unknown sheet source: ${id}`);
-  return source;
-}
-
 export function isSheetSourceConfigured(source: SheetSourceDefinition): boolean {
   return Boolean(process.env[source.envSpreadsheetIdKey]);
 }

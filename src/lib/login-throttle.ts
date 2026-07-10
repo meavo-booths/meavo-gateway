@@ -6,6 +6,11 @@ const MAX_ATTEMPTS = 10;
 export const THROTTLE_ERROR =
   "Too many failed attempts. Please wait 15 minutes and try again.";
 
+/** Shared key so the login action and the credentials provider throttle together. */
+export function loginThrottleKey(email: string): string {
+  return `gateway-login:${email}`;
+}
+
 /** Returns true when the key is currently locked out. */
 export async function isLoginThrottled(key: string): Promise<boolean> {
   const row = await prisma.loginThrottle.findUnique({ where: { key } });

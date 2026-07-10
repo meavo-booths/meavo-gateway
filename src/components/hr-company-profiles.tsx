@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { updateCompanyProfile } from "@/app/actions/hr";
 import type { CompanyProfileData } from "@/lib/company-profiles";
 import { Button, Card, Input, Textarea } from "@/components/ui";
@@ -12,6 +12,20 @@ function profileSummary(profile: CompanyProfileData): string {
 
 function HrCompanyProfileCard({ profile }: { profile: CompanyProfileData }) {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const handleSubmit = (formData: FormData) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateCompanyProfile(formData);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setOpen(false);
+      }
+    });
+  };
 
   return (
     <Card className="!p-4 sm:!p-5">
@@ -30,7 +44,7 @@ function HrCompanyProfileCard({ profile }: { profile: CompanyProfileData }) {
       </div>
 
       {open && (
-        <form action={updateCompanyProfile} className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+        <form action={handleSubmit} className="mt-4 space-y-4 border-t border-slate-100 pt-4">
           <input type="hidden" name="company" value={profile.company} />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
@@ -88,11 +102,14 @@ function HrCompanyProfileCard({ profile }: { profile: CompanyProfileData }) {
               defaultValue={profile.extraTaxFreelancerPercent}
             />
           </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save {profile.company}</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : `Save ${profile.company}`}
+            </Button>
           </div>
         </form>
       )}

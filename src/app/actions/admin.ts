@@ -1,23 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SystemRole, TeamRole, ToolCardKind } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { Prisma, SystemRole, TeamRole, ToolCardKind } from "@prisma/client";
+import { requireAdmin } from "@/lib/action-auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { parseIconKey } from "@/lib/tool-card-icons";
 import { parseToolCardKindFields } from "@/lib/tool-card-kind";
-import { isAdmin, canGrantHrAccess } from "@/lib/permissions";
+import { canGrantHrAccess } from "@/lib/permissions";
 import { DEFAULT_TEAM_COLOR, isValidTeamColor } from "@/lib/team-colors";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 export type ActionResult = { error?: string };
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
-  return session.user;
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 function revalidateAdminPages() {
@@ -57,23 +54,32 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
 
   const passwordHash = password ? await hashPassword(password) : null;
 
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        systemRole: makeAdmin ? SystemRole.ADMIN : SystemRole.USER,
-        hrAccess: grantHr,
-      },
-    });
+  let user;
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          name,
+          passwordHash,
+          systemRole: makeAdmin ? SystemRole.ADMIN : SystemRole.USER,
+          hrAccess: grantHr,
+        },
+      });
 
-    await tx.teamMember.create({
-      data: { userId: created.id, teamId, role },
-    });
+      await tx.teamMember.create({
+        data: { userId: created.id, teamId, role },
+      });
 
-    return created;
-  });
+      return created;
+    });
+  } catch (error) {
+    // Concurrent create with the same email — the pre-check above raced.
+    if (isUniqueConstraintError(error)) {
+      return { error: "A user with this email already exists." };
+    }
+    throw error;
+  }
 
   void enqueueNotification({
     sourceApp: "gateway",
@@ -241,16 +247,23 @@ export async function createToolCard(formData: FormData): Promise<ActionResult> 
     return { error: "Another card already links to this app." };
   }
 
-  await prisma.toolCard.create({
-    data: {
-      name,
-      description,
-      url,
-      iconKey,
-      kind: kindFields.kind,
-      linkedAppKey: kindFields.linkedAppKey,
-    },
-  });
+  try {
+    await prisma.toolCard.create({
+      data: {
+        name,
+        description,
+        url,
+        iconKey,
+        kind: kindFields.kind,
+        linkedAppKey: kindFields.linkedAppKey,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return { error: "Another card already links to this app." };
+    }
+    throw error;
+  }
 
   revalidateAdminPages();
   revalidatePath("/");
@@ -277,17 +290,24 @@ export async function updateToolCard(formData: FormData): Promise<ActionResult> 
     return { error: "Another card already links to this app." };
   }
 
-  await prisma.toolCard.update({
-    where: { id: cardId },
-    data: {
-      name,
-      description,
-      url,
-      iconKey,
-      kind: kindFields.kind,
-      linkedAppKey: kindFields.linkedAppKey,
-    },
-  });
+  try {
+    await prisma.toolCard.update({
+      where: { id: cardId },
+      data: {
+        name,
+        description,
+        url,
+        iconKey,
+        kind: kindFields.kind,
+        linkedAppKey: kindFields.linkedAppKey,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return { error: "Another card already links to this app." };
+    }
+    throw error;
+  }
 
   revalidateAdminPages();
   revalidatePath("/");

@@ -83,8 +83,8 @@ async function resolveSlackUserId(
 /**
  * Sends a Slack DM to the recipient via the workspace bot. Requires a Slack
  * app installed with chat:write, im:write and users:read.email scopes and
- * SLACK_BOT_TOKEN set. Returns the message timestamp, or "skipped-no-token"
- * when the bot is not configured.
+ * SLACK_BOT_TOKEN set. Returns the message timestamp. Throws when the bot is
+ * not configured so the delivery is recorded as FAILED rather than SENT.
  */
 export async function sendSlackDm(
   recipient: NotificationRecipient,
@@ -92,8 +92,7 @@ export async function sendSlackDm(
 ): Promise<string> {
   const token = getBotToken();
   if (!token) {
-    console.warn("[notifications] SLACK_BOT_TOKEN not set; skipped Slack DM to", recipient.email);
-    return "skipped-no-token";
+    throw new Error("SLACK_BOT_TOKEN is not configured; Slack DM not sent");
   }
 
   const slackUserId = await resolveSlackUserId(token, recipient);

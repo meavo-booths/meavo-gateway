@@ -1,25 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { changeUserTeam, resetUserPassword, setUserAccess } from "@/app/actions/admin";
+import { useMemo, useState } from "react";
+import {
+  ChangeTeamModal,
+  ManageAccessModal,
+  ResetPasswordModal,
+  type AdminUser,
+  type CardOption,
+  type TeamOption,
+} from "@/components/admin-user-modals";
 import { DeleteUserButton } from "@/components/delete-user-button";
-import { Modal } from "@/components/modal";
-import { Button, Input, Select } from "@/components/ui";
-
-type TeamOption = { value: string; label: string };
-type CardOption = { id: string; label: string };
-
-type AdminUser = {
-  id: string;
-  name: string | null;
-  email: string;
-  isAdmin: boolean;
-  hrAccess: boolean;
-  teamId: string | null;
-  teamName: string | null;
-  role: "MANAGER" | "MEMBER" | null;
-  accessCardIds: string[];
-};
+import { Button } from "@/components/ui";
 
 type SortOrder = "asc" | "desc";
 type TeamFilter = "all" | "none" | string;
@@ -49,10 +40,6 @@ function AdminUserRow({
   const [resetOpen, setResetOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
-  const [accessError, setAccessError] = useState<string | null>(null);
-  const [teamError, setTeamError] = useState<string | null>(null);
-  const [resetError, setResetError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const displayName = userDisplayName(user);
   const teamLabel = user.teamName
     ? `${user.teamName} · ${user.role === "MANAGER" ? "Manager" : "Member"}`
@@ -88,184 +75,27 @@ function AdminUserRow({
         </div>
       </li>
 
-      <Modal
-        title={`Access — ${displayName}`}
+      <ManageAccessModal
+        user={user}
+        displayName={displayName}
+        cardOptions={cardOptions}
+        canGrantHr={canGrantHr}
         open={accessOpen}
         onClose={() => setAccessOpen(false)}
-      >
-        <form
-          className="space-y-4"
-          action={(formData) => {
-            setAccessError(null);
-            startTransition(async () => {
-              const result = await setUserAccess(formData);
-              if (result.error) {
-                setAccessError(result.error);
-              } else {
-                setAccessOpen(false);
-              }
-            });
-          }}
-        >
-          <input type="hidden" name="userId" value={user.id} />
-          <div className="space-y-2 rounded-lg border border-slate-200 p-3">
-            <p className="text-sm font-medium text-slate-700">Privileges</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="makeAdmin"
-                defaultChecked={user.isAdmin}
-                className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-              />
-              <span>Admin access</span>
-            </label>
-            {canGrantHr && (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="grantHr"
-                  defaultChecked={user.hrAccess}
-                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-                />
-                <span>HR access</span>
-              </label>
-            )}
-          </div>
-          <p className="text-sm text-slate-600">
-            Select tools this user can see on the dashboard. Cards marked App access also control
-            sign-in to that Meavo tool.
-          </p>
-          <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
-            {cardOptions.length === 0 ? (
-              <p className="text-sm text-slate-500">No tool cards yet.</p>
-            ) : (
-              cardOptions.map((card) => (
-                <label key={card.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="cardId"
-                    value={card.id}
-                    defaultChecked={user.accessCardIds.includes(card.id)}
-                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-100"
-                  />
-                  <span>{card.label}</span>
-                </label>
-              ))
-            )}
-          </div>
-          {accessError && (
-            <p className="text-sm text-red-600" role="alert">
-              {accessError}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setAccessOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save access"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        title={`Change team — ${displayName}`}
+      />
+      <ChangeTeamModal
+        user={user}
+        displayName={displayName}
+        teamOptions={teamOptions}
         open={teamOpen}
         onClose={() => setTeamOpen(false)}
-        maxWidthClassName="max-w-sm"
-      >
-        <form
-          className="space-y-4"
-          action={(formData) => {
-            setTeamError(null);
-            startTransition(async () => {
-              const result = await changeUserTeam(formData);
-              if (result.error) {
-                setTeamError(result.error);
-              } else {
-                setTeamOpen(false);
-              }
-            });
-          }}
-        >
-          <input type="hidden" name="userId" value={user.id} />
-          <Select
-            label="Team"
-            name="teamId"
-            required
-            defaultValue={user.teamId ?? teamOptions[0]?.value}
-            options={teamOptions}
-          />
-          <Select
-            label="Role"
-            name="role"
-            defaultValue={user.role ?? "MEMBER"}
-            options={[
-              { value: "MEMBER", label: "Member" },
-              { value: "MANAGER", label: "Manager" },
-            ]}
-          />
-          {teamError && (
-            <p className="text-sm text-red-600" role="alert">
-              {teamError}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setTeamOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        title={`Reset password — ${displayName}`}
+      />
+      <ResetPasswordModal
+        userId={user.id}
+        displayName={displayName}
         open={resetOpen}
         onClose={() => setResetOpen(false)}
-        maxWidthClassName="max-w-sm"
-      >
-        <form
-          className="space-y-4"
-          action={(formData) => {
-            setResetError(null);
-            startTransition(async () => {
-              const result = await resetUserPassword(formData);
-              if (result.error) {
-                setResetError(result.error);
-              } else {
-                setResetOpen(false);
-              }
-            });
-          }}
-        >
-          <input type="hidden" name="userId" value={user.id} />
-          <Input
-            label="New password"
-            name="password"
-            type="password"
-            required
-            autoComplete="new-password"
-            placeholder="At least 8 characters"
-          />
-          {resetError && (
-            <p className="text-sm text-red-600" role="alert">
-              {resetError}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setResetOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Reset password"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      />
     </>
   );
 }

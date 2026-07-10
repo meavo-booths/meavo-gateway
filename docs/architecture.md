@@ -69,6 +69,7 @@ Browser
 |------|----------|---------|
 | `/api/cron/process-notifications` | every 5 min | Deliver `NotificationOutbox` emails via Resend |
 | `/api/cron/weekly-holiday-slack` | Mon 07:00 UTC | Post approved leave for the week to Slack |
+| `/api/cron/daily-task-digest` | weekdays 05:00 UTC | Enqueue per-user overdue/due-today task digests |
 | `/api/cron/import-sheet` | every 30 min | Import Ops File sheet into `GatewaySheetRecord` |
 
 All protected by `CRON_SECRET` Bearer auth (`src/lib/cron-auth.ts`).

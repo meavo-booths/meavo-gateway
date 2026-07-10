@@ -2,7 +2,6 @@ import { Company } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   contractLabel,
-  extractPlaceholders,
   formatDateValue,
   type MergeWarning,
 } from "@/lib/template-placeholders";

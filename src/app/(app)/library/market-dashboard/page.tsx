@@ -11,21 +11,23 @@ const SLUG = "market-dashboard";
 export default async function MarketDashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const canUpload = await canReplaceMarketDashboard(session.user.id);
 
-  const asset = await prisma.libraryAsset.upsert({
-    where: { slug: SLUG },
-    update: {},
-    create: { slug: SLUG, title: "Marketing" },
-    include: {
-      uploadedBy: {
-        select: { name: true, email: true },
+  // The asset row is created by the seed (prisma/seed.ts) — page loads are
+  // read-only.
+  const [canUpload, asset] = await Promise.all([
+    canReplaceMarketDashboard(session.user.id),
+    prisma.libraryAsset.findUnique({
+      where: { slug: SLUG },
+      include: {
+        uploadedBy: {
+          select: { name: true, email: true },
+        },
       },
-    },
-  });
+    }),
+  ]);
 
-  const hasFile = Boolean(asset.storageKey);
-  const uploadedByLabel = asset.uploadedBy
+  const hasFile = Boolean(asset?.storageKey);
+  const uploadedByLabel = asset?.uploadedBy
     ? asset.uploadedBy.name || asset.uploadedBy.email
     : null;
 
@@ -37,7 +39,7 @@ export default async function MarketDashboardPage() {
             slug={SLUG}
             hasFile={hasFile}
             uploadMeta={
-              hasFile
+              hasFile && asset
                 ? {
                     fileName: asset.fileName,
                     updatedAt: asset.updatedAt.toISOString(),

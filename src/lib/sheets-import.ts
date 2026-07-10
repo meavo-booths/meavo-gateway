@@ -102,10 +102,14 @@ async function recordImportState(input: {
   });
 }
 
+const IMPORT_CHUNK_SIZE = 50;
+
 export async function importGatewaySheet(): Promise<{ imported: number }> {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   const tabName = process.env.GOOGLE_SHEETS_TAB_NAME ?? "Sheet1";
   if (!spreadsheetId) throw new Error("GOOGLE_SHEETS_SPREADSHEET_ID is not set");
+
+  let imported = 0;
 
   try {
     const rows = await getSheetValues(spreadsheetId, tabName);
@@ -116,46 +120,53 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
 
     const headers = rows[0] ?? [];
     const importStartedAt = new Date();
-    let imported = 0;
 
-    for (let i = 1; i < rows.length; i += 1) {
-      const row = rows[i] ?? [];
-      const data = rowToRecord(headers, row);
-      const rowKey = resolveRowKey(data, row);
-      if (!rowKey) continue;
+    // Parse everything up front, then write in chunked transactions instead
+    // of one round-trip per row.
+    const records = rows.slice(1).flatMap((row) => {
+      const data = rowToRecord(headers, row ?? []);
+      const rowKey = resolveRowKey(data, row ?? []);
+      if (!rowKey) return [];
+      return [{ rowKey, data, ...extractTypedFields(data, row ?? []) }];
+    });
 
-      const { salesRep, invoiceDate, revenueEur, market, clientType, newVsRepeat } =
-        extractTypedFields(data, row);
-
-      await prisma.gatewaySheetRecord.upsert({
-        where: { rowKey },
-        create: {
-          rowKey,
-          data,
-          salesRep,
-          invoiceDate,
-          revenueEur,
-          market,
-          clientType,
-          newVsRepeat,
-          lastImportedAt: new Date(),
-        },
-        update: {
-          data,
-          salesRep,
-          invoiceDate,
-          revenueEur,
-          market,
-          clientType,
-          newVsRepeat,
-          lastImportedAt: new Date(),
-        },
-      });
-      imported += 1;
+    for (let start = 0; start < records.length; start += IMPORT_CHUNK_SIZE) {
+      const chunk = records.slice(start, start + IMPORT_CHUNK_SIZE);
+      await prisma.$transaction(
+        chunk.map(({ rowKey, data, salesRep, invoiceDate, revenueEur, market, clientType, newVsRepeat }) =>
+          prisma.gatewaySheetRecord.upsert({
+            where: { rowKey },
+            create: {
+              rowKey,
+              data,
+              salesRep,
+              invoiceDate,
+              revenueEur,
+              market,
+              clientType,
+              newVsRepeat,
+              lastImportedAt: new Date(),
+            },
+            update: {
+              data,
+              salesRep,
+              invoiceDate,
+              revenueEur,
+              market,
+              clientType,
+              newVsRepeat,
+              lastImportedAt: new Date(),
+            },
+          }),
+        ),
+      );
+      imported += chunk.length;
     }
 
     // Rows whose rowKey vanished from the sheet (e.g. a deal was re-keyed from
     // a PO number to an INV number) would otherwise linger and double-count.
+    // Only after a fully successful pass — a partial import must never wipe
+    // rows it did not reach.
     if (imported > 0) {
       await prisma.gatewaySheetRecord.deleteMany({
         where: { lastImportedAt: { lt: importStartedAt } },
@@ -166,7 +177,8 @@ export async function importGatewaySheet(): Promise<{ imported: number }> {
     return { imported };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed";
-    await recordImportState({ rowCount: 0, errorMessage: message });
+    // Record how far we got so partial progress is visible in the admin UI.
+    await recordImportState({ rowCount: imported, errorMessage: message });
     throw error;
   }
 }

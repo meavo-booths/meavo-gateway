@@ -258,6 +258,42 @@ async function main() {
     },
   });
 
+  const clockCard = await prisma.toolCard.upsert({
+    where: { id: "seed-clock-tool" },
+    update: {
+      name: "Clock-In",
+      description: "RFID factory clock-in kiosk and timesheets.",
+      url: "https://clock.meavo.app",
+      iconKey: "clock-in",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "clock",
+      sortOrder: 6,
+      isActive: true,
+    },
+    create: {
+      id: "seed-clock-tool",
+      name: "Clock-In",
+      description: "RFID factory clock-in kiosk and timesheets.",
+      url: "https://clock.meavo.app",
+      iconKey: "clock-in",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "clock",
+      sortOrder: 6,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: clockCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: clockCard.id,
+    },
+  });
+
   const tasksCard = await prisma.toolCard.upsert({
     where: { id: "seed-tasks-tool" },
     update: {
@@ -308,7 +344,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory, RP and Tasks cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory, RP, Clock-In and Tasks cards.`);
 }
 
 main()

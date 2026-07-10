@@ -1,32 +1,32 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
-import { getSheetSource, isSheetSourceId } from "@/lib/sheet-sources";
+import { requireAdmin } from "@/lib/action-auth";
+import { isSheetSourceId } from "@/lib/sheet-sources";
 import { importGatewaySheet } from "@/lib/sheets-import";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
-}
-
-export async function refreshSheetSource(formData: FormData): Promise<void> {
+export async function refreshSheetSource(formData: FormData): Promise<{ error?: string }> {
   await requireAdmin();
 
   const sourceId = formData.get("sourceId");
-  if (!isSheetSourceId(sourceId)) throw new Error("Invalid sheet source");
+  if (!isSheetSourceId(sourceId)) return { error: "Invalid sheet source." };
 
-  getSheetSource(sourceId);
-
-  switch (sourceId) {
-    case "ops-file":
-      await importGatewaySheet();
-      break;
-    default:
-      throw new Error("Unsupported sheet source");
+  try {
+    switch (sourceId) {
+      case "ops-file":
+        await importGatewaySheet();
+        break;
+      default:
+        return { error: "Unsupported sheet source." };
+    }
+  } catch (error) {
+    // importGatewaySheet records the failure in SheetImportState; the status
+    // section on the page shows the detail after revalidation.
+    console.error("Sheet import failed:", error);
+    revalidatePath("/admin/sheet-import");
+    return { error: "Import failed — see the status below for details." };
   }
 
   revalidatePath("/admin/sheet-import");
+  return {};
 }

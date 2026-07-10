@@ -13,7 +13,7 @@ const CARDS = [
     name: "MRP",
     description: "Scan invoices, track materials and stock, and sync to Zeron.",
     url: "https://mrp.meavo.app",
-    iconKey: "replacement",
+    iconKey: "mrp",
     linkedAppKey: "mrp",
     sortOrder: 3,
   },

@@ -19,36 +19,40 @@ export default async function ProfilePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      name: true,
-      email: true,
-      image: true,
-      teamMembers: {
-        orderBy: { team: { name: "asc" } },
-        select: {
-          role: true,
-          team: { select: { name: true, color: true } },
+  const [user, adminEvents, userPrefs] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        name: true,
+        email: true,
+        image: true,
+        teamMembers: {
+          orderBy: { team: { name: "asc" } },
+          select: {
+            role: true,
+            team: { select: { name: true, color: true } },
+          },
+        },
+        employee: {
+          select: {
+            contract: true,
+            employeeBirthdate: true,
+            employeePersonalEmail: true,
+            employeeHomeAddress: true,
+            employeeHomeAddressBg: true,
+            providerCompanyName: true,
+            providerCompanyNameBg: true,
+            providerCompanyAddress: true,
+            providerCompanyAddressBg: true,
+            providerCompanyRegNumber: true,
+            providerCompanyVatNumber: true,
+          },
         },
       },
-      employee: {
-        select: {
-          contract: true,
-          employeeBirthdate: true,
-          employeePersonalEmail: true,
-          employeeHomeAddress: true,
-          employeeHomeAddressBg: true,
-          providerCompanyName: true,
-          providerCompanyNameBg: true,
-          providerCompanyAddress: true,
-          providerCompanyAddressBg: true,
-          providerCompanyRegNumber: true,
-          providerCompanyVatNumber: true,
-        },
-      },
-    },
-  });
+    }),
+    getAdminNotificationEvents(),
+    getUserNotificationPreferences(session.user.id, NOTIFICATION_EVENT_TYPES),
+  ]);
 
   if (!user) redirect("/login");
 
@@ -57,11 +61,6 @@ export default async function ProfilePage() {
     color: resolveTeamColor(team.color),
     role,
   }));
-
-  const [adminEvents, userPrefs] = await Promise.all([
-    getAdminNotificationEvents(),
-    getUserNotificationPreferences(session.user.id, NOTIFICATION_EVENT_TYPES),
-  ]);
 
   const notificationEvents: ProfileNotificationEvent[] = adminEvents
     .filter((event) => event.enabled)

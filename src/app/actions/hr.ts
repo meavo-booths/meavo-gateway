@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Company, ContractType, Prisma } from "@prisma/client";
 import { del, put } from "@vercel/blob";
-import { requireHr } from "@/lib/hr-auth";
+import { requireHr } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import {
@@ -86,30 +86,39 @@ export async function hireEmployee(formData: FormData): Promise<{ error?: string
     return { error: "This user is already an employee." };
   }
 
-  const employee = await prisma.$transaction(async (tx) => {
-    const created = await tx.employee.create({
-      data: {
-        userId,
-        company,
-        contract,
-        startDate,
-        role,
-        yearlySalary: toSalaryDecimal(salaryResult.amount),
-      },
-    });
+  let employee;
+  try {
+    employee = await prisma.$transaction(async (tx) => {
+      const created = await tx.employee.create({
+        data: {
+          userId,
+          company,
+          contract,
+          startDate,
+          role,
+          yearlySalary: toSalaryDecimal(salaryResult.amount),
+        },
+      });
 
-    await tx.employeeSalaryHistory.create({
-      data: {
-        employeeId: created.id,
-        yearlySalary: toSalaryDecimal(salaryResult.amount),
-        effectiveFrom: startOfUtcDay(startDate),
-        changedById: hrUser.id,
-        note: "Initial hire",
-      },
-    });
+      await tx.employeeSalaryHistory.create({
+        data: {
+          employeeId: created.id,
+          yearlySalary: toSalaryDecimal(salaryResult.amount),
+          effectiveFrom: startOfUtcDay(startDate),
+          changedById: hrUser.id,
+          note: "Initial hire",
+        },
+      });
 
-    return created;
-  });
+      return created;
+    });
+  } catch (error) {
+    // Concurrent hire for the same user — the pre-check above raced.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "This user is already an employee." };
+    }
+    throw error;
+  }
 
   void enqueueNotification({
     sourceApp: "gateway",
@@ -314,35 +323,44 @@ export async function uploadEmployeeDocument(
   return {};
 }
 
-export async function deleteEmployeeDocument(documentId: string): Promise<void> {
+export async function deleteEmployeeDocument(
+  documentId: string
+): Promise<{ error?: string }> {
   await requireHr();
-  if (!documentId) return;
+  if (!documentId) return { error: "Missing document." };
 
   const doc = await prisma.employeeDocument.findUnique({
     where: { id: documentId },
     select: { storageKey: true },
   });
-  if (!doc) return;
+  if (!doc) return { error: "Document not found." };
+
+  // Remove the DB row first so a blob-store hiccup never leaves a dangling
+  // document entry pointing at a deleted file.
+  await prisma.employeeDocument.delete({ where: { id: documentId } });
 
   try {
     await del(doc.storageKey);
   } catch {
-    // Blob may already be gone; still remove DB row.
+    // Blob may already be gone.
   }
 
-  await prisma.employeeDocument.delete({ where: { id: documentId } });
   revalidateHrPages();
+  return {};
 }
 
-export async function updateCompanyProfile(formData: FormData): Promise<void> {
+export async function updateCompanyProfile(
+  formData: FormData
+): Promise<{ error?: string }> {
   await requireHr();
 
   const company = parseCompany(formData.get("company") as string);
-  if (!company) return;
+  if (!company) return { error: "Unknown company." };
 
   const fteTax = parseTaxPercent(formData.get("extraTaxFtePercent"));
   const freelancerTax = parseTaxPercent(formData.get("extraTaxFreelancerPercent"));
-  if (!fteTax.ok || !freelancerTax.ok) return;
+  if (!fteTax.ok) return { error: fteTax.error };
+  if (!freelancerTax.ok) return { error: freelancerTax.error };
 
   const data = {
     legalName: trimField(formData.get("legalName")),
@@ -366,4 +384,5 @@ export async function updateCompanyProfile(formData: FormData): Promise<void> {
   });
 
   revalidateHrPages();
+  return {};
 }

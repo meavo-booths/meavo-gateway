@@ -2,22 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { NotificationChannel } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/action-auth";
 import { setNotificationEventChannelEnabled as setChannelEnabled } from "@/lib/notifications/event-settings";
-import { isAdmin } from "@/lib/permissions";
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
-}
 
 export async function setNotificationEventChannelEnabled(
   eventType: string,
   channel: NotificationChannel,
   enabled: boolean,
-): Promise<void> {
+): Promise<{ error?: string }> {
   await requireAdmin();
-  await setChannelEnabled(eventType, channel, enabled);
+  try {
+    await setChannelEnabled(eventType, channel, enabled);
+  } catch (error) {
+    console.error("Failed to update notification event setting:", error);
+    return { error: "Could not save the setting. Try again." };
+  }
   revalidatePath("/admin/notifications");
+  return {};
 }

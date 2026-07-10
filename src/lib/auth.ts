@@ -4,6 +4,12 @@ import Google from "next-auth/providers/google";
 import { SystemRole } from "@prisma/client";
 import { authConfig } from "@/lib/auth.config";
 import { authorizeInvitedGoogleUser, isGoogleAuthEnabled } from "@/lib/google-auth";
+import {
+  clearLoginThrottle,
+  isLoginThrottled,
+  loginThrottleKey,
+  recordLoginFailure,
+} from "@/lib/login-throttle";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 
@@ -36,11 +42,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!email || !password) return null;
 
+        // Throttle here (not only in loginAction) so direct POSTs to the
+        // NextAuth credentials endpoint cannot bypass the lockout.
+        const throttleKey = loginThrottleKey(email);
+        if (await isLoginThrottled(throttleKey)) return null;
+
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user?.passwordHash) return null;
+        if (!user?.passwordHash) {
+          await recordLoginFailure(throttleKey);
+          return null;
+        }
 
         const valid = await verifyPassword(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          await recordLoginFailure(throttleKey);
+          return null;
+        }
+
+        await clearLoginThrottle(throttleKey);
 
         if (adminEmails.includes(email) && user.systemRole !== SystemRole.ADMIN) {
           await prisma.user.update({
@@ -88,10 +107,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { systemRole: true, hrAccess: true },
+          select: {
+            systemRole: true,
+            hrAccess: true,
+            name: true,
+            email: true,
+            image: true,
+          },
         });
-        token.systemRole = dbUser?.systemRole ?? SystemRole.USER;
-        token.hrAccess = dbUser?.hrAccess ?? false;
+        // User row deleted — invalidate the session instead of degrading to
+        // a regular user, so middleware redirects to /login.
+        if (!dbUser) return null;
+        token.systemRole = dbUser.systemRole;
+        token.hrAccess = dbUser.hrAccess;
+        token.name = dbUser.name;
+        token.email = dbUser.email;
+        token.picture = dbUser.image;
       }
       return token;
     },
@@ -100,13 +131,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.systemRole = (token.systemRole as SystemRole) ?? SystemRole.USER;
         session.user.hrAccess = token.hrAccess === true;
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { name: true, email: true, image: true },
-        });
-        session.user.name = dbUser?.name ?? null;
-        session.user.email = dbUser?.email ?? session.user.email;
-        session.user.image = dbUser?.image ?? null;
+        session.user.name = token.name ?? null;
+        session.user.email = token.email ?? session.user.email;
+        session.user.image = token.picture ?? null;
       }
       return session;
     },

@@ -21,14 +21,20 @@ export function AdminNotificationEvents({
 }) {
   const [items, setItems] = useState(events);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function toggle(eventType: string, channel: NotificationChannel, field: ChannelField, nextEnabled: boolean) {
     const key = `${eventType}:${channel}`;
     setPendingKey(key);
+    setError(null);
     startTransition(async () => {
       try {
-        await setNotificationEventChannelEnabled(eventType, channel, nextEnabled);
+        const result = await setNotificationEventChannelEnabled(eventType, channel, nextEnabled);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
         setItems((current) =>
           current.map((item) =>
             item.eventType === eventType ? { ...item, [field]: nextEnabled } : item,
@@ -47,6 +53,7 @@ export function AdminNotificationEvents({
         Turn email, in-app bell, and Slack DM delivery on or off per event across gateway, hols,
         and assembly. People can further opt out of individual channels from their profile.
       </p>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead>

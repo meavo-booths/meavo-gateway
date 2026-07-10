@@ -1,4 +1,4 @@
-import { ensureCompanyProfiles } from "@/lib/company-profiles";
+import { getCompanyProfiles } from "@/lib/company-profiles";
 import { prisma } from "@/lib/prisma";
 import { HrCompanyProfiles } from "@/components/hr-company-profiles";
 import {
@@ -8,7 +8,7 @@ import {
 
 export default async function HrDocumentationPage() {
   const [profiles, templates, users] = await Promise.all([
-    ensureCompanyProfiles(),
+    getCompanyProfiles(),
     prisma.documentTemplate.findMany({
       where: { isActive: true },
       orderBy: { updatedAt: "desc" },

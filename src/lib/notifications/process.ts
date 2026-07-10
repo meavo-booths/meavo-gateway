@@ -20,6 +20,10 @@ import type { NotificationRecipient } from "@/lib/notifications/types";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
+// A row stuck in PROCESSING longer than this is assumed to belong to a
+// crashed run and is eligible for reclaim. Claiming sets scheduledFor to the
+// claim time, so scheduledFor doubles as the claim timestamp.
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 function backoffMinutes(attempts: number): number {
   return Math.min(60, 2 ** Math.max(attempts, 1));
@@ -32,14 +36,24 @@ export async function processNotificationOutbox(limit = BATCH_SIZE): Promise<{
   skipped: number;
 }> {
   const now = new Date();
+  const staleCutoff = new Date(now.getTime() - STALE_PROCESSING_MS);
   const rows = await prisma.notificationOutbox.findMany({
     where: {
-      scheduledFor: { lte: now },
       OR: [
-        { status: NotificationStatus.PENDING },
+        {
+          status: NotificationStatus.PENDING,
+          scheduledFor: { lte: now },
+        },
         {
           status: NotificationStatus.FAILED,
           attempts: { lt: MAX_ATTEMPTS },
+          scheduledFor: { lte: now },
+        },
+        // Reclaim rows orphaned by a crash mid-processing.
+        {
+          status: NotificationStatus.PROCESSING,
+          attempts: { lt: MAX_ATTEMPTS },
+          scheduledFor: { lte: staleCutoff },
         },
       ],
     },
@@ -94,12 +108,21 @@ async function processOutboxRow(
   }
 
   // Atomic claim so the cron and enqueue-triggered runs never double-process.
+  // scheduledFor is stamped with the claim time so a crashed run's PROCESSING
+  // rows become reclaimable once they turn stale (see STALE_PROCESSING_MS).
+  const claimStaleCutoff = new Date(Date.now() - STALE_PROCESSING_MS);
   const claimed = await prisma.notificationOutbox.updateMany({
     where: {
       id: row.id,
-      status: { in: [NotificationStatus.PENDING, NotificationStatus.FAILED] },
+      OR: [
+        { status: { in: [NotificationStatus.PENDING, NotificationStatus.FAILED] } },
+        {
+          status: NotificationStatus.PROCESSING,
+          scheduledFor: { lte: claimStaleCutoff },
+        },
+      ],
     },
-    data: { status: NotificationStatus.PROCESSING },
+    data: { status: NotificationStatus.PROCESSING, scheduledFor: new Date() },
   });
   if (claimed.count === 0) return "skipped";
 
@@ -165,12 +188,20 @@ async function processOutboxRow(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Processing failed";
     const attempts = row.attempts + 1;
+    const exhausted = attempts >= MAX_ATTEMPTS;
+    if (exhausted) {
+      console.error(
+        `[notifications] Outbox row ${row.id} (${row.eventType}) permanently failed after ${attempts} attempts: ${message}`,
+      );
+    }
     await prisma.notificationOutbox.update({
       where: { id: row.id },
       data: {
         status: NotificationStatus.FAILED,
         attempts,
-        lastError: message,
+        lastError: exhausted
+          ? `Permanently failed after ${attempts} attempts: ${message}`
+          : message,
         scheduledFor: new Date(Date.now() + backoffMinutes(attempts) * 60_000),
       },
     });

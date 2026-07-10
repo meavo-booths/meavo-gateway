@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Company } from "@prisma/client";
 import { put } from "@vercel/blob";
-import { requireHr } from "@/lib/hr-auth";
+import { requireHr } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import {
   applyOverrides,
@@ -100,15 +100,17 @@ export async function createDocumentTemplateVersion(
     return { error: "Template not found." };
   }
 
-  const latest = await prisma.documentTemplateVersion.findFirst({
-    where: { templateId },
-    orderBy: { versionNumber: "desc" },
-    select: { versionNumber: true },
-  });
-
   const customPlaceholders = extractCustomPlaceholders(body);
 
   await prisma.$transaction(async (tx) => {
+    // Read the latest version inside the transaction so two concurrent saves
+    // cannot both claim the same version number.
+    const latest = await tx.documentTemplateVersion.findFirst({
+      where: { templateId },
+      orderBy: { versionNumber: "desc" },
+      select: { versionNumber: true },
+    });
+
     await tx.documentTemplateVersion.updateMany({
       where: { templateId, isCurrent: true },
       data: { isCurrent: false },

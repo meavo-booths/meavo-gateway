@@ -2,12 +2,7 @@
 
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/lib/auth";
-import {
-  clearLoginThrottle,
-  isLoginThrottled,
-  recordLoginFailure,
-  THROTTLE_ERROR,
-} from "@/lib/login-throttle";
+import { isLoginThrottled, loginThrottleKey, THROTTLE_ERROR } from "@/lib/login-throttle";
 
 type LoginState = { error?: string; ok?: boolean } | null;
 
@@ -22,7 +17,9 @@ export async function loginAction(
     return { error: "Email and password are required." };
   }
 
-  const throttleKey = `gateway-login:${email}`;
+  // Pre-check for a friendly message; the credentials provider enforces the
+  // throttle (and records failures / clears on success) authoritatively.
+  const throttleKey = loginThrottleKey(email);
   if (await isLoginThrottled(throttleKey)) {
     return { error: THROTTLE_ERROR };
   }
@@ -35,19 +32,16 @@ export async function loginAction(
     });
 
     if (result?.error) {
-      await recordLoginFailure(throttleKey);
       return { error: "Invalid email or password." };
     }
 
-    await clearLoginThrottle(throttleKey);
     return { ok: true };
   } catch (error) {
     if (error instanceof AuthError) {
-      await recordLoginFailure(throttleKey);
       return { error: "Invalid email or password." };
     }
     console.error("Login failed:", error);
-    return { error: "Something went wrong. Check that the database is set up." };
+    return { error: "Something went wrong. Please try again." };
   }
 }
 

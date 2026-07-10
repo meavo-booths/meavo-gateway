@@ -11,7 +11,7 @@ Keep handlers **thin** — validate input, call modules in `src/lib/`, map error
 
 ## Auth
 
-- Every Server Action starts with a guard: `auth()` + permission check (see `requireAdmin()` in `src/app/actions/admin.ts`, `requireHr()` in `src/lib/hr-auth.ts`).
+- Every Server Action starts with a guard: `requireUser()` / `requireAdmin()` / `requireHr()` from `src/lib/action-auth.ts`.
 - Every `/api/*` route enforces its own auth — middleware passes `/api/*` through.
 - Cron routes: `isAuthorizedCronRequest(request)` from `src/lib/cron-auth.ts` (`CRON_SECRET` Bearer).
 - Never import Prisma-backed auth in `middleware.ts` (edge) — it uses `src/lib/auth.config.ts` only.
@@ -32,6 +32,7 @@ Manual `FormData` parsing (no Zod). Trim strings, validate required fields at th
 |------|----------|---------|
 | `/api/cron/process-notifications` | `*/5 * * * *` | Deliver `NotificationOutbox` emails via Resend |
 | `/api/cron/weekly-holiday-slack` | `0 7 * * 1` | Post weekly approved-leave digest to Slack |
+| `/api/cron/daily-task-digest` | `0 5 * * 1-5` | Enqueue per-user overdue/due-today task digests |
 | `/api/cron/import-sheet` | `*/30 * * * *` | Import Ops File Google Sheet into `GatewaySheetRecord` |
 
 Collectors/processors live in `src/lib/` (`notifications/process.ts`, `holiday-weekly-digest.ts`, `sheets-import.ts`) — cron handlers just auth and delegate.

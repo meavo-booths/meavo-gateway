@@ -69,6 +69,25 @@ export async function uploadLibraryAsset(
     addRandomSuffix: true,
   });
 
+  // Point the DB at the new blob first; only delete the old blob once the
+  // update has committed, so a failure never leaves the asset pointing at a
+  // deleted file.
+  try {
+    await prisma.libraryAsset.update({
+      where: { id: asset.id },
+      data: {
+        fileName: file.name,
+        mimeType: file.type || "text/html",
+        storageKey: blob.pathname,
+        uploadedById: user.id,
+      },
+    });
+  } catch (error) {
+    await del(blob.pathname).catch(() => undefined);
+    console.error("Library asset update failed:", error);
+    return { error: "Could not save the upload. Try again." };
+  }
+
   if (asset.storageKey) {
     try {
       await del(asset.storageKey);
@@ -76,16 +95,6 @@ export async function uploadLibraryAsset(
       // Previous blob may already be gone.
     }
   }
-
-  await prisma.libraryAsset.update({
-    where: { id: asset.id },
-    data: {
-      fileName: file.name,
-      mimeType: file.type || "text/html",
-      storageKey: blob.pathname,
-      uploadedById: user.id,
-    },
-  });
 
   revalidatePath(`/library/${slug}`);
   return { ok: true };

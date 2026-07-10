@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ContractType } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { requireUser } from "@/lib/action-auth";
 import {
   parseEmployeePersonalFields,
   parseEmployeeProviderFields,
@@ -11,12 +11,6 @@ import {
 } from "@/lib/employee-details";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
-
-async function requireUser() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user;
-}
 
 async function requireOwnEmployee() {
   const user = await requireUser();

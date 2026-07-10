@@ -1,19 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/action-auth";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
-import { isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export type AppNewsActionState = { ok?: boolean; error?: string } | null;
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
-  return session.user;
-}
 
 export async function publishAnnouncement(
   _prev: AppNewsActionState,

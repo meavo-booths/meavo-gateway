@@ -11,7 +11,7 @@ Org standard (see STANDARDS.md §4 in meavo-agent-templates). Deviations for thi
 
 - Verify auth independently in: middleware (pages), section layouts, Server Actions, and API routes.
 - Middleware passes `/api/*` through — never assume an API route is protected.
-- This repo's auth gates: `auth()` from `src/lib/auth.ts` (session), layout guards in `src/app/(app)/admin/layout.tsx` and `src/app/(app)/hr/layout.tsx`, `requireHr()` in `src/lib/hr-auth.ts`, and `isAdmin()` / `hasHrAccess()` / `canGrantHrAccess()` in `src/lib/permissions.ts`.
+- This repo's auth gates: `auth()` from `src/lib/auth.ts` (session), layout guards in `src/app/(app)/admin/layout.tsx` and `src/app/(app)/hr/layout.tsx`, `requireUser()` / `requireAdmin()` / `requireHr()` in `src/lib/action-auth.ts`, and `isAdmin()` / `hasHrAccess()` / `canGrantHrAccess()` in `src/lib/permissions.ts`.
 - Tool card gating: gateway is the **issuer**, not a consumer — gateway login is not gated by `ToolCardAccess`. Gateway manages grants for satellite apps; stable card IDs live in `src/lib/tool-card-registry.ts` (`defaultCardId`, e.g. `seed-sales-tool`). Never look up a card by `linkedAppKey` at runtime.
 
 ## Sessions & credentials

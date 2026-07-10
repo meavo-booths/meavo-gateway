@@ -22,8 +22,8 @@ function statusClass(status: NotificationStatus): string {
   }
 }
 
-export async function AdminNotificationsLog() {
-  const deliveries = await prisma.notificationDelivery.findMany({
+export async function getRecentNotificationDeliveries() {
+  return prisma.notificationDelivery.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
@@ -37,7 +37,17 @@ export async function AdminNotificationsLog() {
       },
     },
   });
+}
 
+export type NotificationDeliveryRow = Awaited<
+  ReturnType<typeof getRecentNotificationDeliveries>
+>[number];
+
+export function AdminNotificationsLog({
+  deliveries,
+}: {
+  deliveries: NotificationDeliveryRow[];
+}) {
   return (
     <Card>
       <h2 className="text-lg font-semibold text-slate-900">Recent notifications</h2>

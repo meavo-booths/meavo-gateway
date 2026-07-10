@@ -195,26 +195,9 @@ function decimalToNumber(value: { toNumber(): number } | null | undefined): numb
   return value.toNumber();
 }
 
-export async function getWeeklyRevenueChartData(
-  filters: RevenueFilters,
-  now = new Date()
-): Promise<WeeklyRevenuePoint[]> {
-  const weeks = getLast12CompleteWeekRanges(now);
-  if (weeks.length === 0) return [];
+type RevenueRow = { invoiceDate: Date | null; revenueEur: Prisma.Decimal | null };
 
-  const dateRange = {
-    start: weeks[0]!.start,
-    end: weeks[weeks.length - 1]!.end,
-  };
-
-  const rows = await prisma.gatewaySheetRecord.findMany({
-    where: buildRevenueWhere(filters, dateRange),
-    select: {
-      invoiceDate: true,
-      revenueEur: true,
-    },
-  });
-
+function bucketWeekly(rows: RevenueRow[], weeks: WeekRange[]): WeeklyRevenuePoint[] {
   const totalsByWeekStart = new Map<string, number>(
     weeks.map((week) => [dateKey(week.start), 0])
   );
@@ -259,26 +242,16 @@ function formatShortDayLabel(date: Date): string {
   }).format(date);
 }
 
-export async function getDailyRevenueChartData(
-  filters: RevenueFilters,
-  now = new Date()
-): Promise<DailyRevenuePoint[]> {
-  // Rolling window of the last 30 complete London days, ending yesterday.
+// Rolling window of the last 30 complete London days, ending yesterday.
+function buildDailyWindow(now: Date): Date[] {
   const days: Date[] = [];
   for (let offset = -DAILY_CHART_DAYS; offset <= -1; offset += 1) {
     days.push(londonCalendarDayUtc(offset, now));
   }
+  return days;
+}
 
-  const dateRange = { start: days[0]!, end: days[days.length - 1]! };
-
-  const rows = await prisma.gatewaySheetRecord.findMany({
-    where: buildRevenueWhere(filters, dateRange),
-    select: {
-      invoiceDate: true,
-      revenueEur: true,
-    },
-  });
-
+function bucketDaily(rows: RevenueRow[], days: Date[]): DailyRevenuePoint[] {
   const totalsByDay = new Map<string, number>(days.map((day) => [dateKey(day), 0]));
 
   for (const row of rows) {
@@ -310,13 +283,10 @@ function monthKey(date: Date): string {
   return date.toISOString().slice(0, 7);
 }
 
-export async function getMonthlyRevenueChartData(
-  filters: RevenueFilters,
-  now = new Date()
-): Promise<MonthlyRevenuePoint[]> {
-  // Full months from January 2026 up to (excluding) the current London month.
-  // Invoice dates are stored as UTC midnights of London calendar days, so
-  // month buckets are plain UTC months.
+// Full months from January 2026 up to (excluding) the current London month.
+// Invoice dates are stored as UTC midnights of London calendar days, so
+// month buckets are plain UTC months.
+function buildMonthlyWindow(now: Date): Date[] {
   const currentMonthStart = londonMonthStartUtc(now);
 
   const months: Date[] = [];
@@ -325,20 +295,11 @@ export async function getMonthlyRevenueChartData(
     months.push(cursor);
     cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
   }
+  return months;
+}
+
+function bucketMonthly(rows: RevenueRow[], months: Date[]): MonthlyRevenuePoint[] {
   if (months.length === 0) return [];
-
-  const dateRange = {
-    start: months[0]!,
-    end: new Date(currentMonthStart.getTime() - 24 * 60 * 60 * 1000),
-  };
-
-  const rows = await prisma.gatewaySheetRecord.findMany({
-    where: buildRevenueWhere(filters, dateRange),
-    select: {
-      invoiceDate: true,
-      revenueEur: true,
-    },
-  });
 
   const totalsByMonth = new Map<string, number>(months.map((month) => [monthKey(month), 0]));
 
@@ -355,4 +316,55 @@ export async function getMonthlyRevenueChartData(
     shortLabel: formatMonthLabel(month, "short"),
     revenue: totalsByMonth.get(monthKey(month)) ?? 0,
   }));
+}
+
+export type RevenueChartData = {
+  weekly: WeeklyRevenuePoint[];
+  daily: DailyRevenuePoint[];
+  monthly: MonthlyRevenuePoint[];
+};
+
+/**
+ * The weekly, daily, and monthly windows overlap heavily, so one query
+ * spanning the widest range feeds all three charts.
+ */
+export async function getRevenueChartData(
+  filters: RevenueFilters,
+  now = new Date()
+): Promise<RevenueChartData> {
+  const weeks = getLast12CompleteWeekRanges(now);
+  const days = buildDailyWindow(now);
+  const months = buildMonthlyWindow(now);
+
+  const starts = [
+    ...weeks.map((week) => week.start),
+    ...days,
+    ...months,
+  ];
+  const ends = [
+    ...weeks.map((week) => week.end),
+    ...days,
+    // The monthly window ends at the last day before the current month.
+    ...(months.length > 0 ? [londonCalendarDayUtc(-1, now)] : []),
+  ];
+  if (starts.length === 0) return { weekly: [], daily: [], monthly: [] };
+
+  const dateRange = {
+    start: new Date(Math.min(...starts.map((date) => date.getTime()))),
+    end: new Date(Math.max(...ends.map((date) => date.getTime()))),
+  };
+
+  const rows = await prisma.gatewaySheetRecord.findMany({
+    where: buildRevenueWhere(filters, dateRange),
+    select: {
+      invoiceDate: true,
+      revenueEur: true,
+    },
+  });
+
+  return {
+    weekly: bucketWeekly(rows, weeks),
+    daily: bucketDaily(rows, days),
+    monthly: bucketMonthly(rows, months),
+  };
 }

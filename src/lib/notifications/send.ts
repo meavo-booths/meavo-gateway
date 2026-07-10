@@ -24,8 +24,9 @@ export async function sendEmail(input: SendEmailInput): Promise<string> {
 
   const resend = getResend();
   if (!resend) {
-    console.warn("[notifications] RESEND_API_KEY not set; skipped email to", to);
-    return "skipped-no-api-key";
+    // Throw so the delivery is recorded as FAILED and retried, instead of
+    // silently marking a never-sent email as SENT.
+    throw new Error("RESEND_API_KEY is not configured; email not sent");
   }
 
   const { data, error } = await resend.emails.send({

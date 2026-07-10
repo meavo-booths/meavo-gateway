@@ -1,10 +1,47 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { buildHrUserWhere, parseHrFilters } from "@/lib/hr-filters";
 import { prisma } from "@/lib/prisma";
 import { HrFilters } from "@/components/hr-filters";
 import { HrUserList, type HrUserRow } from "@/components/hr-user-list";
 
 const PAGE_SIZE = 25;
+
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  teamMembers: {
+    orderBy: { createdAt: "asc" },
+    take: 1,
+    select: { team: { select: { name: true } } },
+  },
+  employee: {
+    select: {
+      id: true,
+      company: true,
+      contract: true,
+      startDate: true,
+      endDate: true,
+      role: true,
+      yearlySalary: true,
+      salaryHistory: {
+        orderBy: { effectiveFrom: "desc" },
+        select: {
+          id: true,
+          yearlySalary: true,
+          effectiveFrom: true,
+          note: true,
+          changedBy: { select: { name: true, email: true } },
+        },
+      },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, fileName: true, createdAt: true },
+      },
+    },
+  },
+} satisfies Prisma.UserSelect;
 
 export default async function HrEmployeesPage({
   searchParams,
@@ -28,55 +65,27 @@ export default async function HrEmployeesPage({
   const filters = parseHrFilters(params, validTeamIds);
   const where = buildHrUserWhere(filters);
 
-  const totalUsers = await prisma.user.count({ where });
-  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
   const requestedPage = Number(Array.isArray(params.page) ? params.page[0] : params.page);
-  const page = Math.min(
-    totalPages,
-    Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1,
-  );
+  const normalizedPage =
+    Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
 
-  const users = await prisma.user.findMany({
-    where,
-    orderBy: [{ name: "asc" }, { email: "asc" }],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      teamMembers: {
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { team: { select: { name: true } } },
-      },
-      employee: {
-        select: {
-          id: true,
-          company: true,
-          contract: true,
-          startDate: true,
-          endDate: true,
-          role: true,
-          yearlySalary: true,
-          salaryHistory: {
-            orderBy: { effectiveFrom: "desc" },
-            select: {
-              id: true,
-              yearlySalary: true,
-              effectiveFrom: true,
-              note: true,
-              changedBy: { select: { name: true, email: true } },
-            },
-          },
-          documents: {
-            orderBy: { createdAt: "desc" },
-            select: { id: true, fileName: true, createdAt: true },
-          },
-        },
-      },
-    },
-  });
+  const fetchUsers = (page: number) =>
+    prisma.user.findMany({
+      where,
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      select: userSelect,
+    });
+
+  const [totalUsers, initialUsers] = await Promise.all([
+    prisma.user.count({ where }),
+    fetchUsers(normalizedPage),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const page = Math.min(totalPages, normalizedPage);
+  // Requested page was beyond the last page — refetch the clamped page.
+  const users = page === normalizedPage ? initialUsers : await fetchUsers(page);
 
   const rows: HrUserRow[] = users.map((user) => ({
     id: user.id,

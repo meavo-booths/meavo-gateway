@@ -47,7 +47,7 @@ Resolved in `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAcces
 
 ## Authorization
 
-- Resolved in: `src/lib/permissions.ts`, `src/lib/hr-auth.ts` (`requireHr`), per-action guards (e.g. `requireAdmin` in `src/app/actions/admin.ts`), section layouts, and `src/middleware.ts` (pages only).
+- Resolved in: `src/lib/permissions.ts`, `src/lib/action-auth.ts` (`requireUser` / `requireAdmin` / `requireHr`), section layouts, and `src/middleware.ts` (pages only).
 - Rules agents get wrong without docs:
   - Middleware does **not** protect `/api/*` — every route handler checks auth itself.
   - HR access is separate from Admin — an admin without `hrAccess` cannot use `/hr`.

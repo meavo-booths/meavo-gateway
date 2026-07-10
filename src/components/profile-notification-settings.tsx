@@ -23,14 +23,20 @@ export function ProfileNotificationSettings({
 }) {
   const [items, setItems] = useState(events);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function toggle(eventType: string, channel: NotificationChannel, nextEnabled: boolean) {
     const key = `${eventType}:${channel}`;
     setPendingKey(key);
+    setError(null);
     startTransition(async () => {
       try {
-        await setMyNotificationPreference(eventType, channel, nextEnabled);
+        const result = await setMyNotificationPreference(eventType, channel, nextEnabled);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
         setItems((current) =>
           current.map((item) =>
             item.eventType === eventType
@@ -52,6 +58,7 @@ export function ProfileNotificationSettings({
       <p className="mt-1 text-sm text-slate-500">
         Choose how you want to be notified. Channels switched off by an admin are not shown.
       </p>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead>

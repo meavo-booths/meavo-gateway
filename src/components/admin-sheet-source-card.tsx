@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
-import { refreshSheetSource } from "@/app/actions/sheet-import";
 import { parseGatewaySheetRecordData } from "@/lib/sheets-import";
 import type { SheetSourceDefinition } from "@/lib/sheet-sources";
-import { Button, Card } from "@/components/ui";
+import { RefreshSheetForm } from "@/components/refresh-sheet-form";
+import { Card } from "@/components/ui";
 
 type ImportState = {
   lastRunAt: Date | null;
@@ -43,12 +43,7 @@ export function AdminSheetSourceCard({
           <h2 className="text-lg font-semibold text-slate-900">{source.name}</h2>
           <p className="mt-1 text-sm text-slate-600">{source.description}</p>
         </div>
-        <form action={refreshSheetSource}>
-          <input type="hidden" name="sourceId" value={source.id} />
-          <Button type="submit" disabled={!configured}>
-            Refresh from sheet
-          </Button>
-        </form>
+        <RefreshSheetForm sourceId={source.id} configured={configured} />
       </div>
 
       <dl className="grid gap-3 text-sm sm:grid-cols-3">

@@ -447,7 +447,7 @@ async function requireAdmin() {
 }
 ```
 
-Export reusable guards from `src/lib/` (e.g. `requireHr()` in `hr-auth.ts`).
+Export reusable guards from `src/lib/` (e.g. `requireUser()` / `requireAdmin()` / `requireHr()` in `action-auth.ts`).
 
 **Never trust the client for permissions.** Always verify server-side in layouts, actions, and API routes.
 

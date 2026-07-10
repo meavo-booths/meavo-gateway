@@ -19,33 +19,48 @@ export type CompanyProfileData = {
   extraTaxFreelancerPercent: string;
 };
 
-export async function ensureCompanyProfiles(): Promise<CompanyProfileData[]> {
-  for (const company of COMPANY_ORDER) {
-    await prisma.companyProfile.upsert({
-      where: { company },
-      update: {},
-      create: { company },
-    });
-  }
+const EMPTY_PROFILE: Omit<CompanyProfileData, "company"> = {
+  legalName: "",
+  legalNameBg: "",
+  address: "",
+  addressBg: "",
+  companyNumber: "",
+  vatNumber: "",
+  deVatNumber: "",
+  eori: "",
+  manager: "",
+  managerBg: "",
+  extraTaxFtePercent: "0",
+  extraTaxFreelancerPercent: "0",
+};
 
+/**
+ * Read-only: rows are created by the seed (prisma/seed.ts). A missing row
+ * falls back to empty in-memory defaults; saving the HR form upserts it.
+ */
+export async function getCompanyProfiles(): Promise<CompanyProfileData[]> {
   const profiles = await prisma.companyProfile.findMany({
     where: { company: { in: COMPANY_ORDER } },
-    orderBy: { company: "asc" },
   });
+  const byCompany = new Map(profiles.map((profile) => [profile.company, profile]));
 
-  return profiles.map((profile) => ({
-    company: profile.company,
-    legalName: profile.legalName,
-    legalNameBg: profile.legalNameBg,
-    address: profile.address,
-    addressBg: profile.addressBg,
-    companyNumber: profile.companyNumber,
-    vatNumber: profile.vatNumber,
-    deVatNumber: profile.deVatNumber,
-    eori: profile.eori,
-    manager: profile.manager,
-    managerBg: profile.managerBg,
-    extraTaxFtePercent: profile.extraTaxFtePercent.toString(),
-    extraTaxFreelancerPercent: profile.extraTaxFreelancerPercent.toString(),
-  }));
+  return COMPANY_ORDER.map((company) => {
+    const profile = byCompany.get(company);
+    if (!profile) return { company, ...EMPTY_PROFILE };
+    return {
+      company: profile.company,
+      legalName: profile.legalName,
+      legalNameBg: profile.legalNameBg,
+      address: profile.address,
+      addressBg: profile.addressBg,
+      companyNumber: profile.companyNumber,
+      vatNumber: profile.vatNumber,
+      deVatNumber: profile.deVatNumber,
+      eori: profile.eori,
+      manager: profile.manager,
+      managerBg: profile.managerBg,
+      extraTaxFtePercent: profile.extraTaxFtePercent.toString(),
+      extraTaxFreelancerPercent: profile.extraTaxFreelancerPercent.toString(),
+    };
+  });
 }

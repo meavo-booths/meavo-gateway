@@ -175,7 +175,18 @@ function digestTaskLine(task: DigestTask): string {
   return `${task.title} (${board}${due})`;
 }
 
-async function dueTasksForUser(userId: string) {
+type DigestTasks = { overdue: DigestTask[]; dueToday: DigestTask[] };
+
+// Short-lived memo: the digest handler renders email, in-app, and Slack for
+// the same recipient in one processing pass, which would otherwise run the
+// identical query up to three times per user.
+const DUE_TASKS_CACHE_TTL_MS = 60_000;
+const dueTasksCache = new Map<string, { expires: number; data: DigestTasks }>();
+
+async function dueTasksForUser(userId: string): Promise<DigestTasks> {
+  const cached = dueTasksCache.get(userId);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
   const today = startOfTodayUtc();
   const tasks = await prisma.task.findMany({
     where: {
@@ -195,7 +206,11 @@ async function dueTasksForUser(userId: string) {
   const dueToday = tasks.filter(
     (task) => task.dueDate && task.dueDate.getTime() === today.getTime(),
   );
-  return { overdue, dueToday };
+
+  const data = { overdue, dueToday };
+  if (dueTasksCache.size > 500) dueTasksCache.clear();
+  dueTasksCache.set(userId, { expires: Date.now() + DUE_TASKS_CACHE_TTL_MS, data });
+  return data;
 }
 
 async function loadVacationRequest(requestId: string) {

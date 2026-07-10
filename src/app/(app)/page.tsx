@@ -7,9 +7,10 @@ import { RevenueSummaryCard } from "@/components/revenue-summary-card";
 import { ToolCardTile } from "@/components/tool-card-tile";
 import { Card, PageHeader } from "@/components/ui";
 
-export const revalidate = 300;
-
 export default async function HomePage() {
+  // Independent of the session — start it before awaiting auth.
+  const revenueStatsPromise = getHomeRevenueStats();
+
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -29,7 +30,7 @@ export default async function HomePage() {
       });
 
   const [revenueStats, statsByKey] = await Promise.all([
-    getHomeRevenueStats(),
+    revenueStatsPromise,
     getToolCardStatsMap(cards.map((card) => card.linkedAppKey)),
   ]);
 
