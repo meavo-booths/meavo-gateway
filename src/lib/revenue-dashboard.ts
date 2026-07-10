@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
-import { LONDON_TIMEZONE, londonCalendarDayUtc } from "@/lib/london-dates";
+import {
+  LONDON_TIMEZONE,
+  londonCalendarDayUtc,
+  londonMonthStartUtc,
+} from "@/lib/london-dates";
 import { prisma } from "@/lib/prisma";
 import { getLondonWeekday } from "@/lib/revenue-stats";
 
@@ -25,6 +29,13 @@ export type WeeklyRevenuePoint = {
 
 export type DailyRevenuePoint = {
   date: string;
+  label: string;
+  shortLabel: string;
+  revenue: number;
+};
+
+export type MonthlyRevenuePoint = {
+  monthStart: string;
   label: string;
   shortLabel: string;
   revenue: number;
@@ -282,5 +293,66 @@ export async function getDailyRevenueChartData(
     label: formatDayLabel(day),
     shortLabel: formatShortDayLabel(day),
     revenue: totalsByDay.get(dateKey(day)) ?? 0,
+  }));
+}
+
+const MONTHLY_CHART_FROM = { year: 2026, month: 0 };
+
+function formatMonthLabel(date: Date, style: "long" | "short"): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    month: style === "long" ? "long" : "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function monthKey(date: Date): string {
+  return date.toISOString().slice(0, 7);
+}
+
+export async function getMonthlyRevenueChartData(
+  filters: RevenueFilters,
+  now = new Date()
+): Promise<MonthlyRevenuePoint[]> {
+  // Full months from January 2026 up to (excluding) the current London month.
+  // Invoice dates are stored as UTC midnights of London calendar days, so
+  // month buckets are plain UTC months.
+  const currentMonthStart = londonMonthStartUtc(now);
+
+  const months: Date[] = [];
+  let cursor = new Date(Date.UTC(MONTHLY_CHART_FROM.year, MONTHLY_CHART_FROM.month, 1));
+  while (cursor.getTime() < currentMonthStart.getTime()) {
+    months.push(cursor);
+    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+  }
+  if (months.length === 0) return [];
+
+  const dateRange = {
+    start: months[0]!,
+    end: new Date(currentMonthStart.getTime() - 24 * 60 * 60 * 1000),
+  };
+
+  const rows = await prisma.gatewaySheetRecord.findMany({
+    where: buildRevenueWhere(filters, dateRange),
+    select: {
+      invoiceDate: true,
+      revenueEur: true,
+    },
+  });
+
+  const totalsByMonth = new Map<string, number>(months.map((month) => [monthKey(month), 0]));
+
+  for (const row of rows) {
+    if (!row.invoiceDate) continue;
+    const key = monthKey(row.invoiceDate);
+    if (!totalsByMonth.has(key)) continue;
+    totalsByMonth.set(key, (totalsByMonth.get(key) ?? 0) + decimalToNumber(row.revenueEur));
+  }
+
+  return months.map((month) => ({
+    monthStart: dateKey(month),
+    label: formatMonthLabel(month, "long"),
+    shortLabel: formatMonthLabel(month, "short"),
+    revenue: totalsByMonth.get(monthKey(month)) ?? 0,
   }));
 }
