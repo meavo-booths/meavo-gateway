@@ -1,7 +1,9 @@
 import { LibrarySection } from "@/components/library-section";
+import { RevenueDailyChart } from "@/components/revenue-daily-chart";
 import { RevenueFilters } from "@/components/revenue-filters";
 import { RevenueWeeklyChart } from "@/components/revenue-weekly-chart";
 import {
+  getDailyRevenueChartData,
   getRevenueFilterOptions,
   getWeeklyRevenueChartData,
   parseRevenueFilters,
@@ -17,8 +19,9 @@ export default async function RevenuePage({
   const params = await searchParams;
   const filters = parseRevenueFilters(params);
 
-  const [chartData, filterOptions] = await Promise.all([
+  const [chartData, dailyChartData, filterOptions] = await Promise.all([
     getWeeklyRevenueChartData(filters),
+    getDailyRevenueChartData(filters),
     getRevenueFilterOptions(),
   ]);
 
@@ -32,6 +35,7 @@ export default async function RevenuePage({
           filterOptions={filterOptions}
         />
         <RevenueWeeklyChart data={chartData} />
+        <RevenueDailyChart data={dailyChartData} />
       </div>
     </LibrarySection>
   );

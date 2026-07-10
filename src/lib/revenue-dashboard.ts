@@ -23,6 +23,13 @@ export type WeeklyRevenuePoint = {
   revenue: number;
 };
 
+export type DailyRevenuePoint = {
+  date: string;
+  label: string;
+  shortLabel: string;
+  revenue: number;
+};
+
 export type RevenueFilterOptions = {
   markets: { value: string; label: string }[];
   clientTypes: { value: string; label: string }[];
@@ -219,5 +226,61 @@ export async function getWeeklyRevenueChartData(
     label: week.label,
     shortLabel: week.shortLabel,
     revenue: totalsByWeekStart.get(dateKey(week.start)) ?? 0,
+  }));
+}
+
+const DAILY_CHART_DAYS = 30;
+
+function formatDayLabel(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function formatShortDayLabel(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TIMEZONE,
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+export async function getDailyRevenueChartData(
+  filters: RevenueFilters,
+  now = new Date()
+): Promise<DailyRevenuePoint[]> {
+  // Rolling window of the last 30 complete London days, ending yesterday.
+  const days: Date[] = [];
+  for (let offset = -DAILY_CHART_DAYS; offset <= -1; offset += 1) {
+    days.push(londonCalendarDayUtc(offset, now));
+  }
+
+  const dateRange = { start: days[0]!, end: days[days.length - 1]! };
+
+  const rows = await prisma.gatewaySheetRecord.findMany({
+    where: buildRevenueWhere(filters, dateRange),
+    select: {
+      invoiceDate: true,
+      revenueEur: true,
+    },
+  });
+
+  const totalsByDay = new Map<string, number>(days.map((day) => [dateKey(day), 0]));
+
+  for (const row of rows) {
+    if (!row.invoiceDate) continue;
+    const key = dateKey(row.invoiceDate);
+    if (!totalsByDay.has(key)) continue;
+    totalsByDay.set(key, (totalsByDay.get(key) ?? 0) + decimalToNumber(row.revenueEur));
+  }
+
+  return days.map((day) => ({
+    date: dateKey(day),
+    label: formatDayLabel(day),
+    shortLabel: formatShortDayLabel(day),
+    revenue: totalsByDay.get(dateKey(day)) ?? 0,
   }));
 }
