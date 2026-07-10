@@ -18,14 +18,27 @@ async function slackApi(
   token: string,
   method: string,
   body: Record<string, unknown>,
+  // users.lookupByEmail (and other GET-style methods) reject JSON bodies
+  // with invalid_arguments; they require form-encoded arguments.
+  encoding: "json" | "form" = "json",
 ): Promise<SlackApiResponse> {
   const response = await fetch(`${SLACK_API}/${method}`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type":
+        encoding === "json"
+          ? "application/json; charset=utf-8"
+          : "application/x-www-form-urlencoded; charset=utf-8",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body:
+      encoding === "json"
+        ? JSON.stringify(body)
+        : new URLSearchParams(
+            Object.fromEntries(
+              Object.entries(body).map(([key, value]) => [key, String(value)]),
+            ),
+          ).toString(),
   });
   if (!response.ok) {
     throw new Error(`Slack API ${method} failed with HTTP ${response.status}`);
@@ -53,7 +66,7 @@ async function resolveSlackUserId(
     if (user?.slackUserId) return user.slackUserId;
   }
 
-  const lookup = await slackApi(token, "users.lookupByEmail", { email: recipient.email });
+  const lookup = await slackApi(token, "users.lookupByEmail", { email: recipient.email }, "form");
   const slackUserId = lookup.user?.id;
   if (!slackUserId) {
     throw new Error(`No Slack user found for ${recipient.email}`);
