@@ -19,6 +19,17 @@ ALTER TABLE "NotificationEventSetting"
   ADD COLUMN IF NOT EXISTS "inAppEnabled" BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS "slackEnabled" BOOLEAN NOT NULL DEFAULT false;
 
+-- Events previously switched off keep behaving as "off" via the channel
+-- toggles; the master flag returns to true so the new per-channel admin UI
+-- fully controls delivery.
+UPDATE "NotificationEventSetting"
+  SET "emailEnabled" = false, "inAppEnabled" = false, "slackEnabled" = false
+  WHERE "enabled" = false;
+
+UPDATE "NotificationEventSetting"
+  SET "enabled" = true
+  WHERE "enabled" = false;
+
 CREATE TABLE IF NOT EXISTS "Notification" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
