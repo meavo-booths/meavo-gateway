@@ -56,6 +56,27 @@ export const NOTIFICATION_EVENT_CATALOG: NotificationEventDefinition[] = [
     description: "Notify HR when an employee contract ends.",
     trigger: "HR ends contract (gateway)",
   },
+  {
+    eventType: "tasks.task.assigned",
+    sourceApp: "tasks",
+    label: "Task assigned",
+    description: "Notify a person when a task is assigned to them.",
+    trigger: "Task assigned to a user (tasks)",
+  },
+  {
+    eventType: "tasks.digest.daily",
+    sourceApp: "tasks",
+    label: "Daily task digest",
+    description: "Morning summary of overdue and due-today tasks, per person.",
+    trigger: "Weekday morning cron (gateway)",
+  },
+  {
+    eventType: "sales.deal.vip_won",
+    sourceApp: "sales",
+    label: "VIP deal won",
+    description: "Notify the sales team when a deal for a VIP client is won.",
+    trigger: "Quote converted to won VIP deal (sales)",
+  },
 ];
 
 export const NOTIFICATION_EVENT_TYPES = NOTIFICATION_EVENT_CATALOG.map((event) => event.eventType);

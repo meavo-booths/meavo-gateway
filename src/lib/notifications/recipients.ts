@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { NotificationRecipient } from "@/lib/notifications/types";
 
 const ASSEMBLY_TOOL_CARD_ID = "seed-assembly-tool";
+const SALES_TOOL_CARD_ID = "seed-sales-tool";
 
 function toRecipient(user: {
   id: string;
@@ -67,6 +68,21 @@ export async function assemblyOperators(): Promise<NotificationRecipient[]> {
     admins(),
     prisma.toolCardAccess.findMany({
       where: { cardId: ASSEMBLY_TOOL_CARD_ID },
+      select: { user: { select: { id: true, email: true, name: true } } },
+    }),
+  ]);
+
+  return dedupeRecipients([
+    ...adminUsers,
+    ...cardUsers.map((access) => toRecipient(access.user)),
+  ]);
+}
+
+export async function salesOperators(): Promise<NotificationRecipient[]> {
+  const [adminUsers, cardUsers] = await Promise.all([
+    admins(),
+    prisma.toolCardAccess.findMany({
+      where: { cardId: SALES_TOOL_CARD_ID },
       select: { user: { select: { id: true, email: true, name: true } } },
     }),
   ]);

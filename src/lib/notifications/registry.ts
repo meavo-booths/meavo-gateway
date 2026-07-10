@@ -1,7 +1,9 @@
+import { TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   assemblyOperators,
   hrUsers,
+  salesOperators,
   teamManagersForUser,
   userById,
 } from "@/lib/notifications/recipients";
@@ -10,7 +12,7 @@ import type {
   RenderedEmail,
   RenderedInApp,
 } from "@/lib/notifications/types";
-import { assemblyUrl, gatewayUrl, holsUrl } from "@/lib/notifications/urls";
+import { assemblyUrl, gatewayUrl, holsUrl, salesUrl, tasksUrl } from "@/lib/notifications/urls";
 import { buttonLink, emailLayout, escapeHtml } from "@/lib/notifications/templates/layout";
 
 export type NotificationEventHandler = {
@@ -67,6 +69,73 @@ function requireString(payload: Record<string, unknown>, key: string): string {
     throw new Error(`Missing payload field: ${key}`);
   }
   return value;
+}
+
+async function loadTask(taskId: string) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { workspace: { select: { id: true, name: true, type: true } } },
+  });
+  if (!task) throw new Error("Task not found");
+  return task;
+}
+
+function taskUrl(task: { id: string; workspace: { id: string; type: string } }): string {
+  // Personal tasks live on the inbox; board tasks deep-link into their board.
+  if (task.workspace.type === "PERSONAL") {
+    return `${tasksUrl()}/?task=${task.id}`;
+  }
+  return `${tasksUrl()}/boards/${task.workspace.id}?task=${task.id}`;
+}
+
+// Task due dates are date-only columns stored at UTC midnight; gateway and the
+// tasks app both run in UTC, so UTC midnight matches the app's "today".
+function startOfTodayUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+type DigestTask = {
+  title: string;
+  dueDate: Date | null;
+  workspace: { name: string; type: string };
+};
+
+function digestSummary(overdueCount: number, dueTodayCount: number): string {
+  const parts: string[] = [];
+  if (overdueCount > 0) parts.push(`${overdueCount} overdue`);
+  if (dueTodayCount > 0) parts.push(`${dueTodayCount} due today`);
+  if (parts.length === 0) return "No overdue or due-today tasks";
+  return `${parts.join(", ")} ${overdueCount + dueTodayCount === 1 ? "task" : "tasks"}`;
+}
+
+function digestTaskLine(task: DigestTask): string {
+  const board = task.workspace.type === "PERSONAL" ? "Personal" : task.workspace.name;
+  const due = task.dueDate ? `, due ${formatDate(task.dueDate)}` : "";
+  return `${task.title} (${board}${due})`;
+}
+
+async function dueTasksForUser(userId: string) {
+  const today = startOfTodayUtc();
+  const tasks = await prisma.task.findMany({
+    where: {
+      status: TaskStatus.OPEN,
+      dueDate: { lte: today },
+      OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
+    },
+    select: {
+      id: true,
+      title: true,
+      dueDate: true,
+      workspace: { select: { id: true, name: true, type: true } },
+    },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+  });
+  const overdue = tasks.filter((task) => task.dueDate && task.dueDate < today);
+  const dueToday = tasks.filter(
+    (task) => task.dueDate && task.dueDate.getTime() === today.getTime(),
+  );
+  return { overdue, dueToday };
 }
 
 async function loadVacationRequest(requestId: string) {
@@ -389,6 +458,182 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         title: "Contract ended",
         body: `${employeeName}'s contract ended on ${endDate}.`,
         url: `${gatewayUrl()}/hr/employees`,
+      };
+    },
+  },
+
+  "tasks.task.assigned": {
+    async resolveRecipients(payload) {
+      const recipient = await userById(requireString(payload, "assigneeUserId"));
+      return recipient ? [recipient] : [];
+    },
+    async render(payload) {
+      const task = await loadTask(requireString(payload, "taskId"));
+      const assigner = await prisma.user.findUnique({
+        where: { id: requireString(payload, "assignedByUserId") },
+        select: { name: true, email: true },
+      });
+      const assignerName = assigner ? displayName(assigner.name, assigner.email) : "A teammate";
+      const dueLine = task.dueDate ? `Due: ${formatDate(task.dueDate)}` : null;
+      const url = taskUrl(task);
+      const subject = `Task assigned to you: ${task.title}`;
+      const text = [
+        `${assignerName} assigned you a task.`,
+        `Task: ${task.title}`,
+        `Board: ${task.workspace.name}`,
+        dueLine,
+        `Open: ${url}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const html = emailLayout(`
+        <h1 style="font-size: 20px; margin: 0 0 12px;">Task assigned to you</h1>
+        <p><strong>${escapeHtml(assignerName)}</strong> assigned you a task.</p>
+        <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
+        <p><strong>Board:</strong> ${escapeHtml(task.workspace.name)}</p>
+        ${dueLine ? `<p><strong>${escapeHtml(dueLine)}</strong></p>` : ""}
+        ${buttonLink(url, "Open in Tasks")}
+      `);
+      return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const task = await loadTask(requireString(payload, "taskId"));
+      const assigner = await prisma.user.findUnique({
+        where: { id: requireString(payload, "assignedByUserId") },
+        select: { name: true, email: true },
+      });
+      const assignerName = assigner ? displayName(assigner.name, assigner.email) : "A teammate";
+      const due = task.dueDate ? ` (due ${formatDate(task.dueDate)})` : "";
+      return {
+        title: "Task assigned to you",
+        body: `${assignerName} assigned you "${task.title}"${due}.`,
+        url: taskUrl(task),
+      };
+    },
+  },
+
+  "tasks.digest.daily": {
+    async resolveRecipients() {
+      const today = startOfTodayUtc();
+      const tasks = await prisma.task.findMany({
+        where: { status: TaskStatus.OPEN, dueDate: { lte: today } },
+        select: { createdById: true, assignees: { select: { userId: true } } },
+      });
+      const userIds = new Set<string>();
+      for (const task of tasks) {
+        userIds.add(task.createdById);
+        for (const assignee of task.assignees) userIds.add(assignee.userId);
+      }
+      if (userIds.size === 0) return [];
+      const users = await prisma.user.findMany({
+        where: { id: { in: [...userIds] } },
+        select: { id: true, email: true, name: true },
+      });
+      return users.map((user) => ({
+        userId: user.id,
+        email: user.email,
+        name: user.name ?? undefined,
+      }));
+    },
+    async render(_payload, recipient) {
+      if (!recipient.userId) throw new Error("Digest recipient missing userId");
+      const { overdue, dueToday } = await dueTasksForUser(recipient.userId);
+      const summary = digestSummary(overdue.length, dueToday.length);
+      const subject = `Task digest: ${summary}`;
+      const textSection = (label: string, tasks: DigestTask[]) =>
+        tasks.length
+          ? [`${label}:`, ...tasks.map((task) => `- ${digestTaskLine(task)}`)].join("\n")
+          : null;
+      const text = [
+        `Good morning! Here's your task digest.`,
+        textSection("Overdue", overdue),
+        textSection("Due today", dueToday),
+        `Open: ${tasksUrl()}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const htmlSection = (label: string, tasks: DigestTask[]) =>
+        tasks.length
+          ? `<p style="margin: 16px 0 4px;"><strong>${escapeHtml(label)}</strong></p>
+             <ul style="margin: 0; padding-left: 20px;">
+               ${tasks.map((task) => `<li>${escapeHtml(digestTaskLine(task))}</li>`).join("")}
+             </ul>`
+          : "";
+      const html = emailLayout(`
+        <h1 style="font-size: 20px; margin: 0 0 12px;">Your task digest</h1>
+        <p>${escapeHtml(summary)}.</p>
+        ${htmlSection("Overdue", overdue)}
+        ${htmlSection("Due today", dueToday)}
+        ${buttonLink(tasksUrl(), "Open Tasks")}
+      `);
+      return { subject, html, text };
+    },
+    async renderInApp(_payload, recipient) {
+      if (!recipient.userId) throw new Error("Digest recipient missing userId");
+      const { overdue, dueToday } = await dueTasksForUser(recipient.userId);
+      return {
+        title: "Daily task digest",
+        body: `${digestSummary(overdue.length, dueToday.length)}.`,
+        url: tasksUrl(),
+      };
+    },
+    async renderSlack(_payload, recipient) {
+      if (!recipient.userId) throw new Error("Digest recipient missing userId");
+      const { overdue, dueToday } = await dueTasksForUser(recipient.userId);
+      const section = (label: string, tasks: DigestTask[]) =>
+        tasks.length
+          ? [`*${label}*`, ...tasks.map((task) => `• ${digestTaskLine(task)}`)].join("\n")
+          : null;
+      return [
+        `*Daily task digest* — ${digestSummary(overdue.length, dueToday.length)}`,
+        section("Overdue", overdue),
+        section("Due today", dueToday),
+        `<${tasksUrl()}|Open Tasks>`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    },
+  },
+
+  "sales.deal.vip_won": {
+    async resolveRecipients() {
+      return salesOperators();
+    },
+    async render(payload) {
+      const dealDbId = requireString(payload, "dealDbId");
+      const dealId = requireString(payload, "dealId");
+      const clientName = requireString(payload, "clientName");
+      const quoteNumber = typeof payload.quoteNumber === "string" ? payload.quoteNumber : "";
+      const url = `${salesUrl()}/deals/${encodeURIComponent(dealDbId)}`;
+      const subject = `VIP deal won: ${clientName}`;
+      const text = [
+        `A VIP deal was just won!`,
+        `Client: ${clientName}`,
+        `Deal ID: ${dealId}`,
+        quoteNumber ? `Quote: ${quoteNumber}` : null,
+        `Open: ${url}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const html = emailLayout(`
+        <h1 style="font-size: 20px; margin: 0 0 12px;">VIP deal won</h1>
+        <p>A VIP deal was just won!</p>
+        <p><strong>Client:</strong> ${escapeHtml(clientName)}</p>
+        <p><strong>Deal ID:</strong> ${escapeHtml(dealId)}</p>
+        ${quoteNumber ? `<p><strong>Quote:</strong> ${escapeHtml(quoteNumber)}</p>` : ""}
+        ${buttonLink(url, "View in Sales")}
+      `);
+      return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const dealDbId = requireString(payload, "dealDbId");
+      const dealId = requireString(payload, "dealId");
+      const clientName = requireString(payload, "clientName");
+      const quoteNumber = typeof payload.quoteNumber === "string" ? payload.quoteNumber : "";
+      return {
+        title: "VIP deal won",
+        body: `Deal ${dealId} won for ${clientName}${quoteNumber ? ` (${quoteNumber})` : ""}.`,
+        url: `${salesUrl()}/deals/${encodeURIComponent(dealDbId)}`,
       };
     },
   },

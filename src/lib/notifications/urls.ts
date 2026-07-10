@@ -15,3 +15,11 @@ export function holsUrl(): string {
 export function assemblyUrl(): string {
   return trimTrailingSlash(process.env.ASSEMBLY_URL ?? "https://assembly.meavo.app");
 }
+
+export function tasksUrl(): string {
+  return trimTrailingSlash(process.env.TASKS_URL ?? "https://tasks.meavo.app");
+}
+
+export function salesUrl(): string {
+  return trimTrailingSlash(process.env.SALES_URL ?? "https://sales.meavo.app");
+}
