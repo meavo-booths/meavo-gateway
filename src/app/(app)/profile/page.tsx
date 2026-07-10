@@ -1,10 +1,18 @@
 import { redirect } from "next/navigation";
+import { NotificationChannel } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import type { EmployeeDetailsData } from "@/lib/employee-details";
+import { getAdminNotificationEvents } from "@/lib/notifications/event-settings";
+import { getUserNotificationPreferences } from "@/lib/notifications/preferences";
+import { NOTIFICATION_EVENT_TYPES } from "@/lib/notifications/event-catalog";
 import { prisma } from "@/lib/prisma";
 import { resolveTeamColor } from "@/lib/team-colors";
 import { ProfileEmployeeDetails } from "@/components/profile-employee-details";
 import { ProfileForm } from "@/components/profile-form";
+import {
+  ProfileNotificationSettings,
+  type ProfileNotificationEvent,
+} from "@/components/profile-notification-settings";
 import { PageHeader } from "@/components/ui";
 
 export default async function ProfilePage() {
@@ -50,6 +58,34 @@ export default async function ProfilePage() {
     role,
   }));
 
+  const [adminEvents, userPrefs] = await Promise.all([
+    getAdminNotificationEvents(),
+    getUserNotificationPreferences(session.user.id, NOTIFICATION_EVENT_TYPES),
+  ]);
+
+  const notificationEvents: ProfileNotificationEvent[] = adminEvents
+    .filter((event) => event.enabled)
+    .map((event) => {
+      const channels: ProfileNotificationEvent["channels"] = [];
+      if (event.emailEnabled) channels.push({ channel: NotificationChannel.EMAIL, label: "Email" });
+      if (event.inAppEnabled) channels.push({ channel: NotificationChannel.IN_APP, label: "Bell" });
+      if (event.slackEnabled) channels.push({ channel: NotificationChannel.SLACK, label: "Slack" });
+      const prefs = userPrefs.get(event.eventType);
+      return {
+        eventType: event.eventType,
+        label: event.label,
+        description: event.description,
+        sourceApp: event.sourceApp,
+        channels,
+        prefs: {
+          [NotificationChannel.EMAIL]: prefs?.email ?? true,
+          [NotificationChannel.IN_APP]: prefs?.inApp ?? true,
+          [NotificationChannel.SLACK]: prefs?.slack ?? true,
+        },
+      };
+    })
+    .filter((event) => event.channels.length > 0);
+
   const employeeDetails: EmployeeDetailsData | null = user.employee
     ? {
         contract: user.employee.contract,
@@ -77,6 +113,7 @@ export default async function ProfilePage() {
         }
       />
       <ProfileForm email={user.email} name={user.name} image={user.image} teams={teams} />
+      <ProfileNotificationSettings events={notificationEvents} />
       {employeeDetails && <ProfileEmployeeDetails employee={employeeDetails} />}
     </div>
   );

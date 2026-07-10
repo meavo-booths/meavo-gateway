@@ -10,6 +10,12 @@ export type RenderedEmail = {
   text: string;
 };
 
+export type RenderedInApp = {
+  title: string;
+  body: string;
+  url?: string;
+};
+
 export type EnqueueNotificationInput = {
   sourceApp: string;
   eventType: string;

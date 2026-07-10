@@ -1,8 +1,22 @@
-import { NotificationStatus, type NotificationOutbox } from "@prisma/client";
+import {
+  NotificationChannel,
+  NotificationStatus,
+  type NotificationOutbox,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isNotificationEventEnabled } from "@/lib/notifications/event-settings";
-import { NOTIFICATION_EVENTS } from "@/lib/notifications/registry";
+import {
+  getNotificationChannelSettings,
+  type NotificationChannelSettings,
+} from "@/lib/notifications/event-settings";
+import { getUserChannelOptOuts } from "@/lib/notifications/preferences";
+import {
+  NOTIFICATION_EVENTS,
+  slackTextFromInApp,
+  type NotificationEventHandler,
+} from "@/lib/notifications/registry";
 import { sendEmail } from "@/lib/notifications/send";
+import { sendSlackDm } from "@/lib/notifications/slack";
+import type { NotificationRecipient } from "@/lib/notifications/types";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
@@ -64,8 +78,10 @@ async function processOutboxRow(
     return "failed";
   }
 
-  const enabled = await isNotificationEventEnabled(row.eventType);
-  if (!enabled) {
+  const settings = await getNotificationChannelSettings(row.eventType);
+  const anyChannelEnabled =
+    settings.enabled && (settings.emailEnabled || settings.inAppEnabled || settings.slackEnabled);
+  if (!anyChannelEnabled) {
     await prisma.notificationOutbox.update({
       where: { id: row.id },
       data: {
@@ -77,10 +93,15 @@ async function processOutboxRow(
     return "skipped";
   }
 
-  await prisma.notificationOutbox.update({
-    where: { id: row.id },
+  // Atomic claim so the cron and enqueue-triggered runs never double-process.
+  const claimed = await prisma.notificationOutbox.updateMany({
+    where: {
+      id: row.id,
+      status: { in: [NotificationStatus.PENDING, NotificationStatus.FAILED] },
+    },
     data: { status: NotificationStatus.PROCESSING },
   });
+  if (claimed.count === 0) return "skipped";
 
   const payload =
     row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
@@ -101,46 +122,30 @@ async function processOutboxRow(
       return "skipped";
     }
 
+    const optOuts = await getUserChannelOptOuts(
+      recipients.flatMap((recipient) => (recipient.userId ? [recipient.userId] : [])),
+      row.eventType,
+    );
+
+    // Channels already delivered in a previous (partially failed) attempt.
+    const priorDeliveries = await prisma.notificationDelivery.findMany({
+      where: { outboxId: row.id, status: NotificationStatus.SENT },
+      select: { channel: true, recipientEmail: true },
+    });
+    const alreadySent = new Set(
+      priorDeliveries.map((d) => `${d.channel}:${d.recipientEmail.toLowerCase()}`),
+    );
+
     let hadFailure = false;
 
     for (const recipient of recipients) {
-      const rendered = await handler.render(payload, recipient);
-      const delivery = await prisma.notificationDelivery.create({
-        data: {
-          outboxId: row.id,
-          recipientEmail: recipient.email,
-          recipientUserId: recipient.userId ?? null,
-          subject: rendered.subject,
-          status: NotificationStatus.PROCESSING,
-        },
-      });
+      const userOptOuts = recipient.userId ? optOuts.get(recipient.userId) : undefined;
+      const channels = enabledChannelsFor(settings, recipient, userOptOuts);
 
-      try {
-        const messageId = await sendEmail({
-          to: recipient.email,
-          subject: rendered.subject,
-          html: rendered.html,
-          text: rendered.text,
-        });
-        await prisma.notificationDelivery.update({
-          where: { id: delivery.id },
-          data: {
-            status: NotificationStatus.SENT,
-            sentAt: new Date(),
-            resendMessageId: messageId,
-            error: null,
-          },
-        });
-      } catch (error) {
-        hadFailure = true;
-        const message = error instanceof Error ? error.message : "Send failed";
-        await prisma.notificationDelivery.update({
-          where: { id: delivery.id },
-          data: {
-            status: NotificationStatus.FAILED,
-            error: message,
-          },
-        });
+      for (const channel of channels) {
+        if (alreadySent.has(`${channel}:${recipient.email.toLowerCase()}`)) continue;
+        const ok = await deliverToChannel({ row, handler, payload, recipient, channel });
+        if (!ok) hadFailure = true;
       }
     }
 
@@ -170,5 +175,105 @@ async function processOutboxRow(
       },
     });
     return "failed";
+  }
+}
+
+function enabledChannelsFor(
+  settings: NotificationChannelSettings,
+  recipient: NotificationRecipient,
+  userOptOuts: Set<NotificationChannel> | undefined,
+): NotificationChannel[] {
+  const channels: NotificationChannel[] = [];
+  if (settings.emailEnabled && !userOptOuts?.has(NotificationChannel.EMAIL)) {
+    channels.push(NotificationChannel.EMAIL);
+  }
+  // Bell notifications need a user account to attach to.
+  if (
+    settings.inAppEnabled &&
+    recipient.userId &&
+    !userOptOuts?.has(NotificationChannel.IN_APP)
+  ) {
+    channels.push(NotificationChannel.IN_APP);
+  }
+  if (settings.slackEnabled && !userOptOuts?.has(NotificationChannel.SLACK)) {
+    channels.push(NotificationChannel.SLACK);
+  }
+  return channels;
+}
+
+async function deliverToChannel(input: {
+  row: NotificationOutbox;
+  handler: NotificationEventHandler;
+  payload: Record<string, unknown>;
+  recipient: NotificationRecipient;
+  channel: NotificationChannel;
+}): Promise<boolean> {
+  const { row, handler, payload, recipient, channel } = input;
+
+  const renderedEmail =
+    channel === NotificationChannel.EMAIL ? await handler.render(payload, recipient) : null;
+  const renderedInApp =
+    channel === NotificationChannel.EMAIL ? null : await handler.renderInApp(payload, recipient);
+
+  const delivery = await prisma.notificationDelivery.create({
+    data: {
+      outboxId: row.id,
+      channel,
+      recipientEmail: recipient.email,
+      recipientUserId: recipient.userId ?? null,
+      subject: renderedEmail?.subject ?? renderedInApp?.title ?? row.eventType,
+      status: NotificationStatus.PROCESSING,
+    },
+  });
+
+  try {
+    let providerId: string | null = null;
+
+    if (channel === NotificationChannel.EMAIL && renderedEmail) {
+      providerId = await sendEmail({
+        to: recipient.email,
+        subject: renderedEmail.subject,
+        html: renderedEmail.html,
+        text: renderedEmail.text,
+      });
+    } else if (channel === NotificationChannel.IN_APP && renderedInApp) {
+      await prisma.notification.create({
+        data: {
+          userId: recipient.userId!,
+          outboxId: row.id,
+          sourceApp: row.sourceApp,
+          eventType: row.eventType,
+          title: renderedInApp.title,
+          body: renderedInApp.body,
+          url: renderedInApp.url ?? null,
+        },
+      });
+    } else if (channel === NotificationChannel.SLACK && renderedInApp) {
+      const text = handler.renderSlack
+        ? await handler.renderSlack(payload, recipient)
+        : slackTextFromInApp(renderedInApp);
+      providerId = await sendSlackDm(recipient, text);
+    }
+
+    await prisma.notificationDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: NotificationStatus.SENT,
+        sentAt: new Date(),
+        resendMessageId: providerId,
+        error: null,
+      },
+    });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Send failed";
+    await prisma.notificationDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: NotificationStatus.FAILED,
+        error: message,
+      },
+    });
+    return false;
   }
 }

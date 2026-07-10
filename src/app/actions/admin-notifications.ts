@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { NotificationChannel } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { setNotificationEventEnabled as setEnabled } from "@/lib/notifications/event-settings";
+import { setNotificationEventChannelEnabled as setChannelEnabled } from "@/lib/notifications/event-settings";
 import { isAdmin } from "@/lib/permissions";
 
 async function requireAdmin() {
@@ -11,11 +12,12 @@ async function requireAdmin() {
   if (!(await isAdmin(session.user.id))) throw new Error("Forbidden");
 }
 
-export async function setNotificationEventEnabled(
+export async function setNotificationEventChannelEnabled(
   eventType: string,
+  channel: NotificationChannel,
   enabled: boolean,
 ): Promise<void> {
   await requireAdmin();
-  await setEnabled(eventType, enabled);
+  await setChannelEnabled(eventType, channel, enabled);
   revalidatePath("/admin/notifications");
 }

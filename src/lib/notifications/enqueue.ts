@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isNotificationEventEnabled } from "@/lib/notifications/event-settings";
+import { processNotificationOutbox } from "@/lib/notifications/process";
 import type { EnqueueNotificationInput } from "@/lib/notifications/types";
 
 export async function enqueueNotification(input: EnqueueNotificationInput): Promise<void> {
@@ -26,4 +27,10 @@ export async function enqueueNotification(input: EnqueueNotificationInput): Prom
     }
     throw error;
   }
+
+  // Gateway-local events get processed immediately instead of waiting for the
+  // cron tick. Rows are claimed atomically, so overlap with the cron is safe.
+  void processNotificationOutbox().catch((error) => {
+    console.error("Immediate notification processing failed:", error);
+  });
 }

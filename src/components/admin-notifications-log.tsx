@@ -1,6 +1,12 @@
-import { NotificationStatus } from "@prisma/client";
+import { NotificationChannel, NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui";
+
+const CHANNEL_LABELS: Record<NotificationChannel, string> = {
+  [NotificationChannel.EMAIL]: "Email",
+  [NotificationChannel.IN_APP]: "Bell",
+  [NotificationChannel.SLACK]: "Slack",
+};
 
 function statusClass(status: NotificationStatus): string {
   switch (status) {
@@ -36,7 +42,7 @@ export async function AdminNotificationsLog() {
     <Card>
       <h2 className="text-lg font-semibold text-slate-900">Recent notifications</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Last 50 email deliveries processed by the gateway notification worker.
+        Last 50 deliveries (email, bell, Slack) processed by the gateway notification worker.
       </p>
       {deliveries.length === 0 ? (
         <p className="mt-4 text-sm text-slate-600">No notifications sent yet.</p>
@@ -47,6 +53,7 @@ export async function AdminNotificationsLog() {
               <tr className="border-b border-slate-200 text-slate-500">
                 <th className="py-2 pr-4 font-medium">When</th>
                 <th className="py-2 pr-4 font-medium">Event</th>
+                <th className="py-2 pr-4 font-medium">Channel</th>
                 <th className="py-2 pr-4 font-medium">Recipient</th>
                 <th className="py-2 pr-4 font-medium">Subject</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
@@ -61,6 +68,9 @@ export async function AdminNotificationsLog() {
                   <td className="py-3 pr-4">
                     <div className="font-medium text-slate-900">{delivery.outbox.eventType}</div>
                     <div className="text-xs text-slate-500">{delivery.outbox.sourceApp}</div>
+                  </td>
+                  <td className="py-3 pr-4 text-slate-700">
+                    {CHANNEL_LABELS[delivery.channel] ?? delivery.channel}
                   </td>
                   <td className="py-3 pr-4 text-slate-700">{delivery.recipientEmail}</td>
                   <td className="py-3 pr-4 text-slate-700">{delivery.subject}</td>

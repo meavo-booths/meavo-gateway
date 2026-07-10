@@ -5,7 +5,11 @@ import {
   teamManagersForUser,
   userById,
 } from "@/lib/notifications/recipients";
-import type { NotificationRecipient, RenderedEmail } from "@/lib/notifications/types";
+import type {
+  NotificationRecipient,
+  RenderedEmail,
+  RenderedInApp,
+} from "@/lib/notifications/types";
 import { assemblyUrl, gatewayUrl, holsUrl } from "@/lib/notifications/urls";
 import { buttonLink, emailLayout, escapeHtml } from "@/lib/notifications/templates/layout";
 
@@ -15,7 +19,24 @@ export type NotificationEventHandler = {
     payload: Record<string, unknown>,
     recipient: NotificationRecipient,
   ) => Promise<RenderedEmail>;
+  /** Short content for the in-app bell; also the default source for Slack DMs. */
+  renderInApp: (
+    payload: Record<string, unknown>,
+    recipient: NotificationRecipient,
+  ) => Promise<RenderedInApp>;
+  /** Optional Slack-specific text; defaults to renderInApp content. */
+  renderSlack?: (
+    payload: Record<string, unknown>,
+    recipient: NotificationRecipient,
+  ) => Promise<string>;
 };
+
+/** Slack mrkdwn text derived from the in-app rendering. */
+export function slackTextFromInApp(rendered: RenderedInApp): string {
+  const lines = [`*${rendered.title}*`, rendered.body];
+  if (rendered.url) lines.push(`<${rendered.url}|Open in MEAVO>`);
+  return lines.join("\n");
+}
 
 function displayName(name: string | null | undefined, email: string): string {
   return name?.trim() || email;
@@ -106,6 +127,17 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
       `);
       return { subject, html, text };
     },
+    async renderInApp(payload) {
+      const request = await loadVacationRequest(requireString(payload, "requestId"));
+      const employee = displayName(request.user.name, request.user.email);
+      const dates = formatDateRange(request.startDate, request.endDate);
+      const days = request.days === 1 ? "1 day" : `${request.days} days`;
+      return {
+        title: "New vacation request",
+        body: `${employee} requested ${dates} (${days}).`,
+        url: `${holsUrl()}/approvals`,
+      };
+    },
   },
 
   "hols.vacation.approved": {
@@ -126,6 +158,16 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         ${buttonLink(`${holsUrl()}/requests`, "View in Hols")}
       `);
       return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const request = await loadVacationRequest(requireString(payload, "requestId"));
+      const reviewer = displayName(request.reviewedBy?.name, request.reviewedBy?.email ?? "Manager");
+      const dates = formatDateRange(request.startDate, request.endDate);
+      return {
+        title: "Vacation approved",
+        body: `Your vacation (${dates}) was approved by ${reviewer}.`,
+        url: `${holsUrl()}/requests`,
+      };
     },
   },
 
@@ -155,6 +197,17 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
       `);
       return { subject, html, text };
     },
+    async renderInApp(payload) {
+      const request = await loadVacationRequest(requireString(payload, "requestId"));
+      const reviewer = displayName(request.reviewedBy?.name, request.reviewedBy?.email ?? "Manager");
+      const dates = formatDateRange(request.startDate, request.endDate);
+      const reviewNote = request.reviewNote?.trim();
+      return {
+        title: "Vacation rejected",
+        body: `Your vacation (${dates}) was rejected by ${reviewer}.${reviewNote ? ` Note: ${reviewNote}` : ""}`,
+        url: `${holsUrl()}/requests`,
+      };
+    },
   },
 
   "assembly.questionnaire.submitted": {
@@ -182,6 +235,16 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
       `);
       return { subject, html, text };
     },
+    async renderInApp(payload) {
+      const dealId = requireString(payload, "dealId");
+      const partnerName = typeof payload.partnerName === "string" ? payload.partnerName : "Partner";
+      const clientName = typeof payload.clientName === "string" ? payload.clientName : "";
+      return {
+        title: "Assembly questionnaire submitted",
+        body: `${partnerName} submitted a questionnaire for ${dealId}${clientName ? ` (${clientName})` : ""}.`,
+        url: `${assemblyUrl()}/assemblies/${encodeURIComponent(dealId)}`,
+      };
+    },
   },
 
   "gateway.user.created": {
@@ -205,6 +268,13 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         ${buttonLink(`${gatewayUrl()}/login`, "Sign in to MEAVO")}
       `);
       return { subject, html, text };
+    },
+    async renderInApp() {
+      return {
+        title: "Welcome to MEAVO",
+        body: "Your MEAVO account has been created.",
+        url: `${gatewayUrl()}/profile`,
+      };
     },
   },
 
@@ -262,6 +332,28 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
       `);
       return { subject, html, text };
     },
+    async renderInApp(payload, recipient) {
+      const employee = await prisma.employee.findUnique({
+        where: { id: requireString(payload, "employeeId") },
+        include: { user: { select: { name: true, email: true } } },
+      });
+      if (!employee) throw new Error("Employee not found");
+      const employeeName = displayName(employee.user.name, employee.user.email);
+      const isEmployee =
+        recipient.userId !== undefined && recipient.userId === employee.userId;
+      if (isEmployee) {
+        return {
+          title: "Welcome aboard",
+          body: `Your MEAVO employment record is active. Role: ${employee.role}, start ${formatDate(employee.startDate)}.`,
+          url: `${gatewayUrl()}/profile`,
+        };
+      }
+      return {
+        title: "Employee hired",
+        body: `${employeeName} was hired as ${employee.role}, starting ${formatDate(employee.startDate)}.`,
+        url: `${gatewayUrl()}/hr/employees`,
+      };
+    },
   },
 
   "gateway.employee.contract_ended": {
@@ -284,6 +376,20 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         ${buttonLink(`${gatewayUrl()}/hr/employees`, "Open HR")}
       `);
       return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const employee = await prisma.employee.findUnique({
+        where: { id: requireString(payload, "employeeId") },
+        include: { user: { select: { name: true, email: true } } },
+      });
+      if (!employee) throw new Error("Employee not found");
+      const employeeName = displayName(employee.user.name, employee.user.email);
+      const endDate = employee.endDate ? formatDate(employee.endDate) : "—";
+      return {
+        title: "Contract ended",
+        body: `${employeeName}'s contract ended on ${endDate}.`,
+        url: `${gatewayUrl()}/hr/employees`,
+      };
     },
   },
 };
