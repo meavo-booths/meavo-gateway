@@ -59,11 +59,17 @@ export function RevenueDailyChart({ data }: { data: DailyRevenuePoint[] }) {
 
   return (
     <Card>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-900">Daily revenue</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Last 30 days (London), up to and including yesterday.
-        </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Daily revenue</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Last 30 days (London), up to and including yesterday.
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-semibold text-slate-900">{formatEur(totalRevenue)}</p>
+          <p className="mt-1 text-sm text-slate-600">Total, past 30 days</p>
+        </div>
       </div>
       <div className="h-80 w-full">
         <ResponsiveContainer width="100%" height="100%">
