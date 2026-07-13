@@ -247,10 +247,6 @@ export function AdminToolCards({
   users: UserOption[];
   usedLinkedAppKeys: string[];
 }) {
-  if (cards.length === 0) {
-    return <p className="mt-4 text-sm text-slate-500">No tool cards yet.</p>;
-  }
-
   const [orderIds, setOrderIds] = useState(() => cards.map((card) => card.id));
   const [reorderError, setReorderError] = useState<string | null>(null);
   const [reorderPending, startReorderTransition] = useTransition();
@@ -265,6 +261,10 @@ export function AdminToolCards({
   const orderedCards = orderIds
     .map((id) => cardsById.get(id))
     .filter((card): card is ToolCardData => Boolean(card));
+
+  if (cards.length === 0) {
+    return <p className="mt-4 text-sm text-slate-500">No tool cards yet.</p>;
+  }
 
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
