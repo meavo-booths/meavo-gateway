@@ -12,7 +12,8 @@
     "db:push": "echo 'db:push is disabled. The shared schema lives in the meavo-db repo (github.com/meavo-booths/meavo-db) — make changes there.' && exit 1",
     "db:studio": "prisma db studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:setup": "bash scripts/setup-production-db.sh"
+    "db:setup": "bash scripts/setup-production-db.sh",
+    "generate-app-icons": "node scripts/generate-app-icons.mjs"
   },
   "prisma": {
     "schema": "node_modules/@meavo/db/prisma/schema.prisma"
@@ -45,6 +46,8 @@
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.0",
     "postcss": "^8.4.49",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
