@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { ToolCardKind } from "@prisma/client";
 import {
   deleteToolCard,
+  reorderToolCards,
   setCardAccess,
   updateToolCard,
 } from "@/app/actions/admin";
@@ -31,14 +32,32 @@ type UserOption = {
   label: string;
 };
 
+function moveId(ids: string[], cardId: string, direction: "up" | "down"): string[] {
+  const index = ids.indexOf(cardId);
+  if (index < 0) return ids;
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (swapWith < 0 || swapWith >= ids.length) return ids;
+  const next = [...ids];
+  [next[index], next[swapWith]] = [next[swapWith], next[index]];
+  return next;
+}
+
 function ToolCardRow({
   card,
   users,
   usedLinkedAppKeys,
+  reorderDisabled,
+  canMoveUp,
+  canMoveDown,
+  onMove,
 }: {
   card: ToolCardData;
   users: UserOption[];
   usedLinkedAppKeys: string[];
+  reorderDisabled: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (direction: "up" | "down") => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
@@ -68,6 +87,24 @@ function ToolCardRow({
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={reorderDisabled || !canMoveUp}
+            aria-label="Move up"
+            onClick={() => onMove("up")}
+          >
+            ↑
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={reorderDisabled || !canMoveDown}
+            aria-label="Move down"
+            onClick={() => onMove("down")}
+          >
+            ↓
+          </Button>
           <Button type="button" variant="secondary" onClick={() => setAccessOpen(true)}>
             Manage access
           </Button>
@@ -214,18 +251,57 @@ export function AdminToolCards({
     return <p className="mt-4 text-sm text-slate-500">No tool cards yet.</p>;
   }
 
+  const [orderIds, setOrderIds] = useState(() => cards.map((card) => card.id));
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const [reorderPending, startReorderTransition] = useTransition();
+
+  useEffect(() => {
+    const next = cards.map((card) => card.id);
+    if (next.join("|") !== orderIds.join("|")) setOrderIds(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards]);
+
+  const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
+  const orderedCards = orderIds
+    .map((id) => cardsById.get(id))
+    .filter((card): card is ToolCardData => Boolean(card));
+
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
       <ul className="divide-y divide-slate-100 bg-white">
-        {cards.map((card) => (
+        {orderedCards.map((card, index) => (
           <ToolCardRow
             key={card.id}
             card={card}
             users={users}
             usedLinkedAppKeys={usedLinkedAppKeys}
+            reorderDisabled={reorderPending}
+            canMoveUp={index > 0}
+            canMoveDown={index < orderedCards.length - 1}
+            onMove={(direction) => {
+              const prev = orderIds;
+              const next = moveId(orderIds, card.id, direction);
+              if (next.join("|") === prev.join("|")) return;
+              setReorderError(null);
+              setOrderIds(next);
+              startReorderTransition(async () => {
+                const result = await reorderToolCards(next);
+                if (result?.error) {
+                  setReorderError(result.error);
+                  setOrderIds(prev);
+                }
+              });
+            }}
           />
         ))}
       </ul>
+      {reorderError && (
+        <div className="border-t border-slate-100 bg-white px-4 py-3">
+          <p className="text-sm text-red-600" role="alert">
+            {reorderError}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

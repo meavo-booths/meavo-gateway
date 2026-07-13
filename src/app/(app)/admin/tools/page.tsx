@@ -69,6 +69,9 @@ export default async function AdminToolsPage() {
         <p className="mt-1 text-sm text-slate-500">
           App access cards control sign-in to Meavo tools. Link-only cards are dashboard bookmarks.
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          Order here controls how tool cards appear on the home page.
+        </p>
         <AdminToolCards
           cards={toolCards}
           users={userOptions}

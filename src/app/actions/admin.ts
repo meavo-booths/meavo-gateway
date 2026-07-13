@@ -247,6 +247,9 @@ export async function createToolCard(formData: FormData): Promise<ActionResult> 
     return { error: "Another card already links to this app." };
   }
 
+  const { _max } = await prisma.toolCard.aggregate({ _max: { sortOrder: true } });
+  const sortOrder = (_max.sortOrder ?? -1) + 1;
+
   try {
     await prisma.toolCard.create({
       data: {
@@ -256,6 +259,7 @@ export async function createToolCard(formData: FormData): Promise<ActionResult> 
         iconKey,
         kind: kindFields.kind,
         linkedAppKey: kindFields.linkedAppKey,
+        sortOrder,
       },
     });
   } catch (error) {
@@ -319,6 +323,37 @@ export async function deleteToolCard(cardId: string): Promise<ActionResult> {
   if (!cardId) return { error: "Missing card." };
 
   await prisma.toolCard.delete({ where: { id: cardId } });
+  revalidateAdminPages();
+  revalidatePath("/");
+  return {};
+}
+
+export async function reorderToolCards(orderedCardIds: string[]): Promise<ActionResult> {
+  await requireAdmin();
+  if (orderedCardIds.length === 0) return { error: "Nothing to reorder." };
+
+  const cards = await prisma.toolCard.findMany({
+    select: { id: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+
+  const allIds = cards.map((card) => card.id);
+
+  const idSet = new Set(orderedCardIds);
+  if (
+    orderedCardIds.length !== allIds.length ||
+    idSet.size !== allIds.length ||
+    !orderedCardIds.every((id) => allIds.includes(id))
+  ) {
+    return { error: "Invalid card order." };
+  }
+
+  await prisma.$transaction(
+    orderedCardIds.map((id, index) =>
+      prisma.toolCard.update({ where: { id }, data: { sortOrder: index } }),
+    ),
+  );
+
   revalidateAdminPages();
   revalidatePath("/");
   return {};
