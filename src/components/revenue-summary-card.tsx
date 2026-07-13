@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/ui";
 import { formatEur, type HomeRevenueStats } from "@/lib/revenue-stats";
 
@@ -42,6 +43,11 @@ export function RevenueSummaryCard({ stats }: { stats: HomeRevenueStats }) {
           value={formatEur(stats.lastWeekRevenue)}
         />
         <StatSegment label="This month" value={formatEur(stats.thisMonthRevenue)} />
+      </div>
+      <div className="mt-2 text-sm">
+        <Link href="/library/revenue" className="font-medium text-brand-700 hover:underline">
+          Full revenue report
+        </Link>
       </div>
     </Card>
   );
