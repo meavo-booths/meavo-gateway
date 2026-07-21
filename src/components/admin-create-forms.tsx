@@ -46,6 +46,19 @@ export function CreateUserForm({
 
   return (
     <form ref={formRef} action={submit} className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+      <p className="text-sm text-slate-600">
+        Factory clock workers are created here (email + optional password), then
+        assigned an RFID card in{" "}
+        <a
+          href="https://clock.meavo.app/workers"
+          className="font-medium text-emerald-700 underline-offset-2 hover:underline"
+          target="_blank"
+          rel="noreferrer"
+        >
+          clock.meavo.app
+        </a>
+        . They do not need Clock tool-card access.
+      </p>
       <Input label="Email" name="email" type="email" required />
       <Input label="Name" name="name" placeholder="Jane Smith" />
       <Input
