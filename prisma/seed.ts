@@ -330,6 +330,42 @@ async function main() {
     },
   });
 
+  const zeronCard = await prisma.toolCard.upsert({
+    where: { id: "seed-zeron-tool" },
+    update: {
+      name: "Zeron Materials",
+      description: "Review Zeron delivery unit-cost outliers from sheet exports.",
+      url: "https://zeron.meavo.app",
+      iconKey: "mrp",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "zeron",
+      sortOrder: 9,
+      isActive: true,
+    },
+    create: {
+      id: "seed-zeron-tool",
+      name: "Zeron Materials",
+      description: "Review Zeron delivery unit-cost outliers from sheet exports.",
+      url: "https://zeron.meavo.app",
+      iconKey: "mrp",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "zeron",
+      sortOrder: 9,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: zeronCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: zeronCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },
@@ -344,7 +380,7 @@ async function main() {
     create: { slug: "market-dashboard", title: "Marketing" },
   });
 
-  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory, RP, Clock-In and Tasks cards.`);
+  console.log(`Seeded admin (${adminEmail}), Engineering team, Vacation Tracker, Assembly, Sales, MRP, Factory, RP, Clock-In, Tasks and Zeron cards.`);
 }
 
 main()
