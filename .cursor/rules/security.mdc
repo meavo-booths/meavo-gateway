@@ -43,3 +43,4 @@ Org standard (see STANDARDS.md §4 in meavo-agent-templates). Deviations for thi
 - `ADMIN_EMAILS` env var auto-promotes matching users to `SystemRole.ADMIN` on login.
 - `HR_ACCESS_GRANTOR_EMAIL` env var restricts who can grant/revoke HR access.
 - Library upload is additionally gated by marketing team membership (`MARKETING_TEAM_ID`) — see `canUploadLibraryAsset()` in `src/lib/permissions.ts`.
+- Library Useful links are gated by admin or marketing team (`canManageUsefulLinks()` in `src/lib/permissions.ts`); URLs must be HTTPS.

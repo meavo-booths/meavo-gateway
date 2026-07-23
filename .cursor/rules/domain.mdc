@@ -10,7 +10,7 @@ Business logic lives in flat modules under `src/lib/` (e.g. `hr-employee.ts`, `s
 
 ## Patterns
 
-1. Permission checks via `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAccess`, `canUploadLibraryAsset`) — resolve from DB, never trust the client.
+1. Permission checks via `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAccess`, `canUploadLibraryAsset`, `canManageUsefulLinks`) — resolve from DB, never trust the client.
 2. After Prisma writes that should email someone, enqueue via `src/lib/notifications/enqueue.ts` with a stable `idempotencyKey`; fire-and-forget with `.catch(console.error)`. Register new event types in `src/lib/notifications/event-catalog.ts` first.
 3. Tool card definitions come from `src/lib/tool-card-registry.ts` — stable seed IDs, never runtime `linkedAppKey` lookups.
 4. Reuse existing modules — search `src/lib/` before adding new files; one concern per file.

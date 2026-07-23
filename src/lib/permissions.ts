@@ -58,3 +58,17 @@ export async function canUploadLibraryAsset(userId: string, slug: string): Promi
 export async function canReplaceMarketDashboard(userId: string): Promise<boolean> {
   return canUploadLibraryAsset(userId, MARKET_DASHBOARD_SLUG);
 }
+
+/** Admins or marketing-team members may manage Library Useful links. */
+export async function canManageUsefulLinks(userId: string): Promise<boolean> {
+  if (await isAdmin(userId)) return true;
+
+  const teamId = marketingTeamId();
+  if (!teamId) return false;
+
+  const membership = await prisma.teamMember.findFirst({
+    where: { userId, teamId },
+    select: { id: true },
+  });
+  return Boolean(membership);
+}

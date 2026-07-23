@@ -27,10 +27,10 @@ Business rules and **where to change what**. For stack see [architecture.md](arc
 | `SystemRole.ADMIN` (`User.systemRole`; auto-granted to `ADMIN_EMAILS`) | `/admin` | Manage users, teams, tool cards + grants, notifications, sheet import; sees all tool cards |
 | HR access (`User.hrAccess`) | `/hr` | Employee database, hire/end contract, salaries, documents, templates |
 | HR grantor (`HR_ACCESS_GRANTOR_EMAIL` env) | Admin users list | Only these emails can grant/revoke HR access |
-| Marketing team member (`MARKETING_TEAM_ID` env) | Library | Upload/replace the Market Dashboard asset |
+| Marketing team member (`MARKETING_TEAM_ID` env) | Library | Upload/replace the Market Dashboard asset; manage Useful links |
 | Regular user | `/`, `/library`, `/profile` | Sees granted tool cards; edits own profile |
 
-Resolved in `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAccess`, `canUploadLibraryAsset`) and layout guards in `src/app/(app)/admin/layout.tsx` and `src/app/(app)/hr/layout.tsx`.
+Resolved in `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAccess`, `canUploadLibraryAsset`, `canManageUsefulLinks`) and layout guards in `src/app/(app)/admin/layout.tsx` and `src/app/(app)/hr/layout.tsx`.
 
 ## Mutation map
 
@@ -40,6 +40,7 @@ Resolved in `src/lib/permissions.ts` (`isAdmin`, `hasHrAccess`, `canGrantHrAcces
 | Hire / edit / end contract, salaries | `src/lib/hr-employee.ts`, `src/lib/salary.ts` | `src/app/actions/hr.ts` | Enqueues hired/contract-ended events; PDFs → Blob |
 | Document templates + PDF generation | `src/lib/template-*.ts` | `src/app/actions/document-templates.ts` | Versioned; placeholders from `template-placeholders.ts` |
 | Library assets (culture hub, dashboards) | `src/lib/permissions.ts`, `src/lib/culture-hub-content.ts` | `src/app/actions/library.ts` | Upload gated by admin or marketing team |
+| Useful links | `src/lib/permissions.ts` | `src/app/actions/useful-links.ts` | Admin or marketing; HTTPS URLs only |
 | Own profile | `src/lib/employee-details.ts` | `src/app/actions/profile.ts` | |
 | Notification events on/off | `src/lib/notifications/event-settings.ts` | `src/app/actions/admin-notifications.ts` | Catalog in `notifications/event-catalog.ts` |
 | Sheet import (manual trigger) | `src/lib/sheets-import.ts` | `src/app/actions/sheet-import.ts` | Cron does the scheduled runs |

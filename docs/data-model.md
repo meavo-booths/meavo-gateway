@@ -19,6 +19,7 @@ User ──< TeamMember >── Team
  │
  ├──< DocumentTemplate ──< DocumentTemplateVersion ──< GeneratedDocument
  └──< LibraryAsset
+ └──< UsefulLink
 
 CompanyProfile (per Company enum: MEAVO | OA)
 LoginThrottle  (keyed rate limiting)
@@ -64,9 +65,9 @@ One row per Ops File sheet row (`rowKey` = DealID, full row as `data` JSON) with
 
 Cross-app email outbox: any app enqueues (with `idempotencyKey`), gateway cron delivers via Resend and logs deliveries. `NotificationEventSetting` lets admins toggle event types.
 
-### `LoginThrottle` / `LibraryAsset` / `Account`
+### `LoginThrottle` / `LibraryAsset` / `UsefulLink` / `Account`
 
-Shared login rate limiting (10 failures / 15 min); uploaded HTML dashboards (Blob-backed, unique `slug`); NextAuth OAuth accounts.
+Shared login rate limiting (10 failures / 15 min); uploaded HTML dashboards (Blob-backed, unique `slug`); Library “Useful links” HTTPS bookmark tiles (name, description, url, optional `iconKey`, `sortOrder`); NextAuth OAuth accounts.
 
 ## Sync / external copies
 
