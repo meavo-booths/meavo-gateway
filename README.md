@@ -145,7 +145,7 @@ npx prisma db execute --file scripts/add-gateway-sheet-record.sql \
 
 ## Weekly holiday Slack digest
 
-Every **Monday at 07:00 UTC** (~09:00 Sofia in winter), gateway posts approved leave for the current calendar week to a Slack channel.
+Every **Monday at 07:00 UTC** (~09:00 Sofia in winter), gateway posts approved leave and public holidays for the current calendar week to a Slack channel.
 
 1. In Slack: **Apps → Incoming Webhooks** (or create a Slack app with an incoming webhook) and copy the webhook URL for your target channel.
 2. Set `SLACK_HOLIDAY_DIGEST_WEBHOOK_URL` on the gateway Vercel project.
@@ -158,7 +158,7 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" \
   "https://meavo.app/api/cron/weekly-holiday-slack"
 ```
 
-The message lists **approved** vacation requests that overlap the current week (Mon–Sun in `HOLIDAY_DIGEST_TIMEZONE`), with employee name, team, dates, and duration.
+The message lists **approved** vacation requests that overlap the current week (Mon–Sun in `HOLIDAY_DIGEST_TIMEZONE`), with employee name, team, dates, and duration. It also lists **public holidays** for that week for every country where at least one user has `holidayCountryCode` set (from the shared `PublicHoliday` cache warmed by hols).
 
 After adding notification tables, run the targeted SQL script:
 

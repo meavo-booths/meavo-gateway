@@ -6,6 +6,7 @@ import {
   getWeekRangeForTimeZone,
   isHolidayDigestEnabled,
   loadWeeklyHolidayEntries,
+  loadWeeklyPublicHolidays,
 } from "@/lib/holiday-weekly-digest";
 import { holsUrl } from "@/lib/notifications/urls";
 import { postSlackWebhook } from "@/lib/slack";
@@ -31,10 +32,14 @@ export async function GET(request: NextRequest) {
   try {
     const timeZone = getHolidayDigestTimeZone();
     const { weekStart, weekEnd, weekLabel } = getWeekRangeForTimeZone(timeZone);
-    const entries = await loadWeeklyHolidayEntries(weekStart, weekEnd);
+    const [entries, publicHolidays] = await Promise.all([
+      loadWeeklyHolidayEntries(weekStart, weekEnd),
+      loadWeeklyPublicHolidays(weekStart, weekEnd),
+    ]);
     const message = buildWeeklyHolidaySlackMessage({
       weekLabel,
       entries,
+      publicHolidays,
       timeZone,
       holsUrl: holsUrl(),
     });
@@ -46,6 +51,7 @@ export async function GET(request: NextRequest) {
       sent: true,
       weekLabel,
       count: entries.length,
+      publicHolidayCount: publicHolidays.length,
       timeZone,
     });
   } catch (error) {
