@@ -174,6 +174,7 @@ const STATS_FETCHERS: Record<LinkedAppKey, () => Promise<ToolCardStats>> = {
   clock: getClockStats,
   tasks: getTasksStats,
   zeron: async () => ({ lines: [] }),
+  requests: async () => ({ lines: [] }),
 };
 
 export async function getToolCardStats(

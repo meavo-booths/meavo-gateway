@@ -7,7 +7,8 @@ export type LinkedAppKey =
   | "rp"
   | "clock"
   | "tasks"
-  | "zeron";
+  | "zeron"
+  | "requests";
 
 export type AppAccessCardDefinition = {
   key: LinkedAppKey;
@@ -72,6 +73,12 @@ export const APP_ACCESS_CARDS: Record<LinkedAppKey, AppAccessCardDefinition> = {
     domain: "zeron.meavo.app",
     defaultCardId: "seed-zeron-tool",
   },
+  requests: {
+    key: "requests",
+    label: "Requests",
+    domain: "requests.meavo.app",
+    defaultCardId: "seed-requests-tool",
+  },
 };
 
 export const LINKED_APP_OPTIONS = Object.values(APP_ACCESS_CARDS).map((app) => ({
@@ -89,7 +96,8 @@ export function isLinkedAppKey(value: string | null | undefined): value is Linke
     value === "rp" ||
     value === "clock" ||
     value === "tasks" ||
-    value === "zeron"
+    value === "zeron" ||
+    value === "requests"
   );
 }
 

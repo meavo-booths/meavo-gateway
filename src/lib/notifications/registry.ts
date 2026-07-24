@@ -7,13 +7,14 @@ import {
   salesOperators,
   teamManagersForUser,
   userById,
+  usersByIds,
 } from "@/lib/notifications/recipients";
 import type {
   NotificationRecipient,
   RenderedEmail,
   RenderedInApp,
 } from "@/lib/notifications/types";
-import { assemblyUrl, gatewayUrl, holsUrl, salesUrl, tasksUrl } from "@/lib/notifications/urls";
+import { assemblyUrl, gatewayUrl, holsUrl, requestsUrl, salesUrl, tasksUrl } from "@/lib/notifications/urls";
 import { buttonLink, emailLayout, escapeHtml } from "@/lib/notifications/templates/layout";
 import { parseTemplateMarkup, type InlineRun } from "@/lib/template-markup";
 
@@ -743,6 +744,55 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventHandler> = {
         title: "VIP deal won",
         body: `Deal ${dealId} won for ${clientName}${quoteNumber ? ` (${quoteNumber})` : ""}.`,
         url: `${salesUrl()}/deals/${encodeURIComponent(dealDbId)}`,
+      };
+    },
+  },
+
+  "requests.feature.status_changed": {
+    async resolveRecipients(payload) {
+      const raw = payload.recipientUserIds;
+      const ids = Array.isArray(raw)
+        ? raw.filter((value): value is string => typeof value === "string" && value.length > 0)
+        : [];
+      return usersByIds(ids);
+    },
+    async render(payload) {
+      const requestId = requireString(payload, "requestId");
+      const title = requireString(payload, "title");
+      const oldStatus = requireString(payload, "oldStatus");
+      const newStatus = requireString(payload, "newStatus");
+      const actorName = typeof payload.actorName === "string" ? payload.actorName : "An admin";
+      const url =
+        typeof payload.url === "string" && payload.url.length > 0
+          ? payload.url
+          : `${requestsUrl()}/${encodeURIComponent(requestId)}`;
+      const subject = `Request status: ${title} → ${newStatus}`;
+      const text = [
+        `${actorName} updated the status of "${title}".`,
+        `${oldStatus} → ${newStatus}`,
+        `Open: ${url}`,
+      ].join("\n");
+      const html = emailLayout(`
+        <h1 style="font-size: 20px; margin: 0 0 12px;">Feature request status changed</h1>
+        <p><strong>${escapeHtml(title)}</strong></p>
+        <p>${escapeHtml(oldStatus)} → <strong>${escapeHtml(newStatus)}</strong></p>
+        <p>Updated by ${escapeHtml(actorName)}.</p>
+        ${buttonLink(url, "Open in Requests")}
+      `);
+      return { subject, html, text };
+    },
+    async renderInApp(payload) {
+      const requestId = requireString(payload, "requestId");
+      const title = requireString(payload, "title");
+      const newStatus = requireString(payload, "newStatus");
+      const url =
+        typeof payload.url === "string" && payload.url.length > 0
+          ? payload.url
+          : `${requestsUrl()}/${encodeURIComponent(requestId)}`;
+      return {
+        title: "Feature request status changed",
+        body: `"${title}" is now ${newStatus}.`,
+        url,
       };
     },
   },

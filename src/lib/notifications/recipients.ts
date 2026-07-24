@@ -38,6 +38,16 @@ export async function userById(userId: string): Promise<NotificationRecipient | 
   return user ? toRecipient(user) : null;
 }
 
+export async function usersByIds(userIds: string[]): Promise<NotificationRecipient[]> {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+  const users = await prisma.user.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, email: true, name: true },
+  });
+  return dedupeRecipients(users.map(toRecipient));
+}
+
 export async function teamManagersForUser(userId: string): Promise<NotificationRecipient[]> {
   const memberships = await prisma.teamMember.findMany({
     where: { userId },

@@ -366,6 +366,42 @@ async function main() {
     },
   });
 
+  const requestsCard = await prisma.toolCard.upsert({
+    where: { id: "seed-requests-tool" },
+    update: {
+      name: "Requests",
+      description: "Feature and change requests with voting.",
+      url: "https://requests.meavo.app",
+      iconKey: "requests",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "requests",
+      sortOrder: 10,
+      isActive: true,
+    },
+    create: {
+      id: "seed-requests-tool",
+      name: "Requests",
+      description: "Feature and change requests with voting.",
+      url: "https://requests.meavo.app",
+      iconKey: "requests",
+      kind: ToolCardKind.APP_ACCESS,
+      linkedAppKey: "requests",
+      sortOrder: 10,
+      isActive: true,
+    },
+  });
+
+  await prisma.toolCardAccess.upsert({
+    where: {
+      userId_cardId: { userId: admin.id, cardId: requestsCard.id },
+    },
+    update: {},
+    create: {
+      userId: admin.id,
+      cardId: requestsCard.id,
+    },
+  });
+
   for (const company of [Company.MEAVO, Company.OA]) {
     await prisma.companyProfile.upsert({
       where: { company },

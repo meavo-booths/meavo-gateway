@@ -84,6 +84,13 @@ export const NOTIFICATION_EVENT_CATALOG: NotificationEventDefinition[] = [
     description: "Notify the sales team when a deal for a VIP client is won.",
     trigger: "Quote converted to won VIP deal (sales)",
   },
+  {
+    eventType: "requests.feature.status_changed",
+    sourceApp: "requests",
+    label: "Feature status changed",
+    description: "Notify the author and voters when a feature request changes status.",
+    trigger: "Feature request status updated (requests)",
+  },
 ];
 
 export const NOTIFICATION_EVENT_TYPES = NOTIFICATION_EVENT_CATALOG.map((event) => event.eventType);

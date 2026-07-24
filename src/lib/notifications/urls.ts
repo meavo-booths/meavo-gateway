@@ -23,3 +23,7 @@ export function tasksUrl(): string {
 export function salesUrl(): string {
   return trimTrailingSlash(process.env.SALES_URL ?? "https://sales.meavo.app");
 }
+
+export function requestsUrl(): string {
+  return trimTrailingSlash(process.env.REQUESTS_URL ?? "https://requests.meavo.app");
+}

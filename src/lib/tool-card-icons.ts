@@ -28,6 +28,7 @@ const VARIANTS: { variant: IconVariant; suffix: string; labelSuffix: string }[] 
 const NAMED_ICONS: BaseIcon[] = [
   { baseKey: "clock-in", label: "Clock-In", section: "apps" },
   { baseKey: "tasks", label: "Tasks", section: "apps" },
+  { baseKey: "requests", label: "Requests", section: "apps" },
   { baseKey: "vacation", label: "Vacation", section: "apps" },
   { baseKey: "assembly", label: "Assembly", section: "apps" },
   { baseKey: "sales", label: "Sales", section: "apps" },
